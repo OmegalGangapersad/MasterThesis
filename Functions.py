@@ -61,8 +61,7 @@ def StackDFDS(InputDataFrameName,ValueName,tmpStagingDSAvailableSECIDDataFrame):
     del z['DSAvailableSECID']
     return z
 
-def download_file_from_google_drive(id, destination):
-    # from https://stackoverflow.com/questions/38511444/python-download-files-from-google-drive-using-url
+def download_file_from_google_drive(id, destination):    
     import requests
     URL = "https://docs.google.com/uc?export=download"
     session = requests.Session()
@@ -71,13 +70,15 @@ def download_file_from_google_drive(id, destination):
     if token:
         params = { 'id' : id, 'confirm' : token }
         response = session.get(URL, params = params, stream = True)
-    save_response_content(response, destination)    
+    save_response_content(response, destination)   
+    #source: https://stackoverflow.com/questions/38511444/python-download-files-from-google-drive-using-url
 
 def get_confirm_token(response):
     for key, value in response.cookies.items():
         if key.startswith('download_warning'):
             return value
     return None
+    #source: https://stackoverflow.com/questions/38511444/python-download-files-from-google-drive-using-url    
 
 def save_response_content(response, destination):
     CHUNK_SIZE = 32768
@@ -85,7 +86,8 @@ def save_response_content(response, destination):
         for chunk in response.iter_content(CHUNK_SIZE):
             if chunk: # filter out keep-alive new chunks
                 f.write(chunk)
-
+    #source: https://stackoverflow.com/questions/38511444/python-download-files-from-google-drive-using-url
+                
 def RankingPerGroup(tmpColumns, tmpGroupOnColumnsInt, tmpSourceDataFrame): #enabled for list based grouping
     import pandas as pd
     import numpy as np    
