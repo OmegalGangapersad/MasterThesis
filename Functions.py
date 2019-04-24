@@ -12,6 +12,8 @@
 @update  : Date (yyyyMMdd)
                20190215
                - Added logs
+               20190424
+               - Added Google drive shareable link download               
 """ 
 
 def LogScript(ScriptName, Time, LogComment):
@@ -58,6 +60,36 @@ def StackDFDS(InputDataFrameName,ValueName,tmpStagingDSAvailableSECIDDataFrame):
     z = pd.merge(z, tmpStagingDSAvailableSECIDDataFrame, on='DSAvailableSECID', how='left')
     del z['DSAvailableSECID']
     return z
+
+def download_file_from_google_drive(id, destination):
+    import requests
+    URL = "https://docs.google.com/uc?export=download"
+
+    session = requests.Session()
+
+    response = session.get(URL, params = { 'id' : id }, stream = True)
+    token = get_confirm_token(response)
+
+    if token:
+        params = { 'id' : id, 'confirm' : token }
+        response = session.get(URL, params = params, stream = True)
+
+    save_response_content(response, destination)    
+
+def get_confirm_token(response):
+    for key, value in response.cookies.items():
+        if key.startswith('download_warning'):
+            return value
+
+    return None
+
+def save_response_content(response, destination):
+    CHUNK_SIZE = 32768
+
+    with open(destination, "wb") as f:
+        for chunk in response.iter_content(CHUNK_SIZE):
+            if chunk: # filter out keep-alive new chunks
+                f.write(chunk)
 
 def RankingPerGroup(tmpColumns, tmpGroupOnColumnsInt, tmpSourceDataFrame): #enabled for list based grouping
     import pandas as pd
