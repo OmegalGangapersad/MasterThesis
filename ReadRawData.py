@@ -72,7 +72,7 @@ tmpScriptName = os.path.basename(__file__)
 tmpStartTimeScript = datetime.datetime.now()
 Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Start Script') 
 tmpMainDir = os.path.dirname(os.path.realpath(__file__)) #working directory
-tmpImportDirectory = tmpMainDir + '\\Input\\RawData\\' #'C:/Users/neera/OneDrive/Documents/MasterThesis/Data/'
+tmpImportDirectory = tmpMainDir + '\\Input\\RawData\\' 
 tmpSettings = pd.read_excel(tmpMainDir + '\\Settings.xlsx','Sheet1')
 tmpFilenameBBBEE = pd.DataFrame(tmpSettings[tmpSettings['Parameter'] == 'FilenameBBBEE']['Value'])
 tmpFilenamePRICE = pd.DataFrame(tmpSettings[tmpSettings['Parameter'] == 'FilenamePRICE']['Value'])
