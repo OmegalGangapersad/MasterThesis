@@ -18,9 +18,15 @@
 			20190215
 				- Added logs
 				- Cleaned structure of this script
+            20190424
+				- Added logs
+				- Cleaned structure of this script                
 """
 ##START SCRIPT
+
 import os
+import sys
+import numpy as np
 import pandas as pd
 import Functions
 import datetime
@@ -32,29 +38,36 @@ Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Start Script')
 Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Initiate')
 MainDir = os.path.dirname(os.path.realpath(__file__)) #working directory
 ImportDirectory = MainDir + '\\Input\\RawData\\' #'C:/Users/neera/OneDrive/Documents/MasterThesis/Data/'
-FilenameBBBEE = 'BBBEE_aggregate.xlsx'
-SheetBBBEE = 'Sheet1'
-FilenamePRICE = 'Datastream_Price_Yr.xlsx'
-SheetPRICE = 'Output'
-FilenameBVPS = 'Datastream_BookvaluePerShare_Yr.xlsx'
-SheetBVPS = 'Output'
-FilenameMV = 'Datastream_MarketValue_Yr.xlsx'
-SheetMV = 'Output'
-FilenameYLD = 'Datastream_Yields_Yr.xlsx'
-SheetYLD = 'Output'
-FilenameSEC ='SecurityIdentifiers.xlsx'
+Settings = pd.read_excel(MainDir + '\\Settings.xlsx','Sheet1')
+FilenameBBBEE = pd.DataFrame(Settings[Settings['Parameter'] == 'FilenameBBBEE']['Value'])
+FilenamePRICE = pd.DataFrame(Settings[Settings['Parameter'] == 'FilenamePRICE']['Value'])
+FilenameBVPS = pd.DataFrame(Settings[Settings['Parameter'] == 'FilenameBVPS']['Value'])
+FilenameMV = pd.DataFrame(Settings[Settings['Parameter'] == 'FilenameMV']['Value'])
+FilenameYLD = pd.DataFrame(Settings[Settings['Parameter'] == 'FilenameYLD']['Value'])
+FilenameSEC = pd.DataFrame(Settings[Settings['Parameter'] == 'FilenameSEC']['Value'])
+SheetGeneral = 'Output'
 SheetSECDS = 'Unique_RIC_ISIN_Mapping' #RIC retrieved data
 SheetSECBBBEEDS = 'SourceName_RIC_Mapping' #BBBEE name RIC mapping
 
 ##CALCULATE
 Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Calculate')
-RawDataBBBEE = pd.read_excel(ImportDirectory + FilenameBBBEE,SheetBBBEE)
-RawDataPRICE = pd.read_excel(ImportDirectory + FilenamePRICE,SheetPRICE)
-RawDataBVPS = pd.read_excel(ImportDirectory + FilenameBVPS,SheetBVPS)
-RawDataMV = pd.read_excel(ImportDirectory + FilenameMV,SheetMV)
-RawDataYLD = pd.read_excel(ImportDirectory + FilenameYLD,SheetYLD)
-RawDataSECDS = pd.read_excel(ImportDirectory + FilenameSEC,SheetSECDS)
-RawDataSECBBBEEDS = pd.read_excel(ImportDirectory + FilenameSEC,SheetSECBBBEEDS)
+try:
+    RawDataBBBEE = pd.read_excel(ImportDirectory + FilenameBBBEE['Value'].iloc[0],SheetGeneral)
+    RawDataPRICE = pd.read_excel(ImportDirectory + FilenamePRICE['Value'].iloc[0],SheetGeneral)
+    RawDataBVPS = pd.read_excel(ImportDirectory + FilenameBVPS['Value'].iloc[0],SheetGeneral)
+    RawDataMV = pd.read_excel(ImportDirectory + FilenameMV['Value'].iloc[0],SheetGeneral)
+    RawDataYLD = pd.read_excel(ImportDirectory + FilenameYLD['Value'].iloc[0],SheetGeneral)
+    RawDataSECDS = pd.read_excel(ImportDirectory + FilenameSEC['Value'].iloc[0],SheetSECDS)
+    RawDataSECBBBEEDS = pd.read_excel(ImportDirectory + FilenameSEC['Value'].iloc[0],SheetSECBBBEEDS)
+except:
+    Functions.LogScript(tmpScriptName,datetime.datetime.now(),'End Script - FAILED import, RunTime: '+ Functions.StrfTimeDelta(datetime.datetime.now()-tmpStartTimeScript))   
+    # Settings = pd.read_excel(MainDir + '\\Settings.xlsx','Sheet1')
+   # FilenameBBBEE = Settings[Settings['Parameter'] == 'FilenameBBBEE']['Value'][0]
+   # RawDataBBBEE = pd.read_excel(ImportDirectory + FilenameBBBEE,SheetBBBEE)
+    sys.exit(0)
+
+
+
 
 ##END SCRIPT
 Functions.LogScript(tmpScriptName,datetime.datetime.now(),'End Script, RunTime: '+ Functions.StrfTimeDelta(datetime.datetime.now()-tmpStartTimeScript))
