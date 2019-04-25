@@ -11,26 +11,30 @@
 				5. Output StagingData to csv
 @instruct:  Do not remove line 1 and 2. Code in this script on line 2 is used to be able to import other scripts as modules. 
 @update  :  Date (yyyyMMdd)
-            20120211:               
+            20190211:               
                 - Finished up until step 3 of clean rawdata, 
                 - Tidy up code by intermittently deleting tmp variables
-            20120212:
+            20190212:
                 - Apply available Datastream securities on BBBEE dataset - masking
                 - Adjusted Datastream retrieval excel file to get yearly data
                 - Standardized Datastream data
                 - Calculated PriceReturn 
                 - Created StagingData
-            20120213:
+            20190213:
                 - Created an index for available Datastream securities and yields
                 - Finished StagingData
                 - Cleaned code a bit, deleting all irrelevant variables
                 - Export StagingData to csv
-            20120215:
+            20190215:
                 - Added Log functions
                 - Cleaned structure of this script
-            20120216:
+            20190216:
                 - Renamed script from CleanRawData.py to StagingData.py
                 - Removed loop to in StagingData with merge (reducing run time of StagingData.py from 8mins to 1sec)
+            20190425:
+                - Considered to add constituents that represent the wider market to create market based proxies, by using JSE All Share Index, however overlap was quite big as of latest JSE All Share Index holding and history constituents JSE All Share Index was not available
+                - I need to reformat the date column to accomodate for different lags
+                - Structure from DS (most data) only removed columns with no value
 """
 ##START SCRIPT
 import os
@@ -54,6 +58,7 @@ RawYLD = ReadRawData.RawDataYLD
 RawSECDS = ReadRawData.RawDataSECDS
 RawSECBBBEEDS = ReadRawData.RawDataSECBBBEEDS
 	
+
 ##STEP1: Identify in Datastream orice, bvps, mv, data where columns are Error, create Staging Datastream
 Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Start STEP1: Identify in Datastream orice, bvps, mv, data where columns are Error, create Staging Datastream: Find Columns Error')
 
@@ -68,15 +73,15 @@ ErrorRow2 = tmpErrorTot[0,:]
 del tmpErrorStr, tmpErrorPRICE, tmpErrorBVPS, tmpErrorMV, tmpErrorTot
 
 #CREATE PREREQUISITE DATA STAGING DATASTREAM
-Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Start STEP1: Identify in Datastream orice, bvps, mv, data where columns are Error, create Staging Datastream: Create Staging Datastream')
+Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Start STEP1: Identify in Datastream price, bvps, mv, data where columns are Error, create Staging Datastream: Create Staging Datastream')
 tmpDSMat = np.array(RawPRICE)
 tmpStagingDSAvailableVec =  np.tile(ErrorRow2, (tmpDSMat.shape[0],1)) 
 tmpStagingDSAvailableVec2 = tmpStagingDSAvailableVec[0,:]
 tmpColumnNames =np.array(RawPRICE.columns)
 tmpColumnNames2 = pd.DataFrame((tmpColumnNames[tmpStagingDSAvailableVec2 == False]))
-tmpColumnNames2[0][0] = 'Year'
+tmpColumnNames2[0][0] = 'Year' 
 del tmpColumnNames
-
+"""
 #CREATE DATAFRAMES STAGING DATASTREAM
 StagingPrice = pd.DataFrame(np.array(RawPRICE)[:,tmpStagingDSAvailableVec[0,:] == False])
 StagingBVPS = pd.DataFrame(np.array(RawBVPS)[:,tmpStagingDSAvailableVec[0,:] == False])
@@ -166,3 +171,4 @@ del MainDir, ExportDir, RawBBBEE, RawBVPS, RawMV, RawPRICE, RawSECBBBEEDS, RawSE
 ##END SCRIPT
 Functions.LogScript(tmpScriptName,datetime.datetime.now(),'End Script, RunTime: '+ Functions.StrfTimeDelta(datetime.datetime.now()-tmpStartTimeScript))
 del tmpScriptName, tmpStartTimeScript
+"""
