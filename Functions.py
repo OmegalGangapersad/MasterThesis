@@ -46,6 +46,16 @@ def LogFile(Message):
     logging.info(Message)
     #source: https://stackoverflow.com/questions/35898160/logging-module-not-writing-to-file?rq=1
 
+def StagingDates(InputDataFrame):
+    #STOPPED HERE
+    from datetime import datetime
+    StagingDateTime = [date.to_datetime() for date in InputDataFrame]
+    StagingYear = [date.year for date in InputDataFrame]
+    StagingMonth = [date.month for date in InputDataFrame]
+    StagingDay = [date.day for date in InputDataFrame]
+    #Source: https://stackoverflow.com/questions/25852044/converting-pandas-tslib-timestamp-to-datetime-python
+
+
 def StackDFDS(InputDataFrameName,ValueName,tmpStagingDSAvailableSECIDDataFrame):
     import pandas as pd
     import numpy as np
