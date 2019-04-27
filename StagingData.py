@@ -70,14 +70,20 @@ RawSECBBBEEDS = ReadRawData.RawDataSECBBBEEDS
 ##STEP1: Identify in Datastream orice, bvps, mv, data where columns are Error, create Staging Datastream
 Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Start STEP1: Identify in Datastream price, bvps, mv, data where columns are Error, create Staging Datastream: Find Columns Error')
 
+#CREATE DATES DATAFRAMEWORK
+StagingDates= Functions.DatesDF(RawPRICE['Name'])
+
 #REMOVE DATES FROM DS DATA
 StagingPrice = np.array(RawPRICE)[:,1:] #select set of data without date
 StagingBVPS = np.array(RawBVPS)[:,1:]
 StagingMV = np.array(RawMV)[:,1:]
 
-#FIND AND REMOVE COLUMNS ERROR
+#FIND AND REMOVE COLUMNS ERROR AND PENNY STOCKS
 tmpErrorStr = '$$ER'
+tmpMinSharePrice = 1
+tmpMaxTimeFail = math.ceil(0.1*StagingPrice.shape[0])
 ErrorRow = np.zeros(shape=StagingPrice.shape[1])
+PennyRow = np.zeros(shape=StagingPrice.shape[1])
 for ii in range(StagingPrice.shape[1]):
     tmpStrValues = np.array([str(StagingPrice[0,ii]),str(StagingBVPS[0,ii]),str(StagingMV[0,ii])]) 
     tmpFalseValues = np.array(np.array(np.char.find(tmpStrValues, tmpErrorStr) == -1))[np.array(np.char.find(tmpStrValues, tmpErrorStr) != -1)] #np.char.find returns a value unequal to -1 if any of the values in the tmpArray contains '$$ER', here I ask to return a array where the values are unequal to -1 (so return the array which contains all the errors)     
@@ -85,37 +91,21 @@ for ii in range(StagingPrice.shape[1]):
         ErrorRow[ii] = True
     else:
         ErrorRow[ii] = False
+        tmpPriceFailSum = np.transpose([(StagingPrice[:,ii] < tmpMinSharePrice)])
+        tmpPriceFailCount = np.sum(tmpPriceFailSum, axis=0)
+        if tmpPriceFailCount > tmpMaxTimeFail:
+            PennyRow[ii] = True
+        else:
+            PennyRow[ii] = False
 del tmpStrValues,tmpFalseValues,ii
 Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Start STEP1: Identify in Datastream price, bvps, mv, data where columns are Error, create Staging Datastream: Finished Columns Error')
+TotErrorRow = ErrorRow + PennyRow
 
-# REMOVE PENNY STOCKS
-StagingPrice = pd.DataFrame(StagingPrice[:,ErrorRow == False]) #select set of data without error in data
-tmpMinSharePrice = 1
-tmpMaxTimeFail = math.ceil(0.1*StagingPrice.shape[0])
-tmpPriceFailSum = pd.DataFrame(np.zeros(shape=StagingPrice.shape))
-tmpPriceFailSum[(StagingPrice < tmpMinSharePrice)] = 1 #error terms not str() < int()
-tmpPriceFailCount = pd.DataFrame(np.sum(tmpPriceFailSum, axis=0)) #sums the amount of times per column price was under tmpMinSharePrice - note this ignores values with nan
-tmpPriceFailDummy = pd.DataFrame(np.zeros(shape=tmpPriceFailCount.shape))
-tmpPriceFailDummy[tmpPriceFailCount > tmpMaxTimeFail] = 1 #this shows about 90 companies more than 10% of the time lower than tmpMinSharePrice
-tmpPriceFailDummy = np.array(tmpPriceFailDummy)[:,0]
-ErrorRow = ErrorRow + tmpPriceFailDummy
-"""
-
-StagingDates= Functions.DatesDF(RawPRICE['Name'])
-StagingBVPS = pd.DataFrame(StagingBVPS[:,ErrorRow == False])
-StagingMV = pd.DataFrame(StagingMV[:,ErrorRow == False])
+StagingPrice = pd.DataFrame(StagingPrice[:,TotErrorRow == False]) 
+StagingBVPS = pd.DataFrame(StagingBVPS[:,TotErrorRow == False])
+StagingMV = pd.DataFrame(StagingMV[:,TotErrorRow == False])
 StagingPriceReturn = StagingPrice.pct_change()
 StagingLogPriceReturn = pd.DataFrame(np.log(1 + StagingPriceReturn))
-
-StagingBP = np.zeros(shape=StagingBVPS.shape)
-for x in range(StagingBVPS.shape[1]):    
-    StagingBP[:,x] = np.divide(np.array(StagingBVPS)[:,x], np.array(StagingPrice)[:,x])
-#remove columns where price hits 0
-
-
-
-StagingMV = np.array(RawMV)[:,1:]
-StagingMV = pd.DataFrame(np.array(StagingMV)[:,np.array(ErrorRow) == False])
 
 
 
@@ -129,17 +119,6 @@ tmpColumnNames2 = pd.DataFrame((tmpColumnNames[tmpStagingDSAvailableVec2 == Fals
 tmpColumnNames2[0][0] = 'Year' 
 del tmpColumnNames
 
-#CREATE DATAFRAMES STAGING DATASTREAM
-StagingDates= Functions.DatesDF(RawPRICE['Name'])
-StagingPrice = pd.DataFrame(np.array(RawPRICE)[:,tmpStagingDSAvailableVec[0,:] == False])
-StagingBVPS = pd.DataFrame(np.array(RawBVPS)[:,tmpStagingDSAvailableVec[0,:] == False])
-StagingMV = pd.DataFrame(np.array(RawMV)[:,tmpStagingDSAvailableVec[0,:] == False])
-StagingPriceReturn = np.array(StagingPrice[:,1]).pct_change() #CHECK!
-StagingLogPriceReturn = pd.DataFrame(np.log(1 + StagingPriceReturn))
-StagingPriceReturn[0] = StagingPrice[0]
-StagingLogPriceReturn[0] = StagingPrice[0]
-StagingYields = pd.DataFrame(RawYLD)
-StagingYields.columns = ['Year','US10YR','SA10YR','US2YR','SA2YR']
 
 #CREATE STACKED STAGING DATASTREAM (TO (WITHOUT LOOP) MERGE IN FINAL STAGINGDATA DATAFRAME LATER)
 tmpStagingDSAvailableSECID = pd.DataFrame(RawSECDS[tmpStagingDSAvailableVec2[1:] == False])
