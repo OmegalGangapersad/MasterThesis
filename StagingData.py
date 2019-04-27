@@ -35,12 +35,18 @@
                 - Considered to add constituents that represent the wider market to create market based proxies, by using JSE All Share Index, however overlap was quite big as of latest JSE All Share Index holding and history constituents JSE All Share Index was not available
                 - I need to reformat the date column to accomodate for different lags
                 - Structure from DS (most data) only removed columns with no value
+            20190426:    
+                - Restructured the Error finding code, as it did not capture all errors - code slowed significantly
+                - Restructered the StagingPrice, MV BVPS etc. to make it simpler
+                - Added BP
+                - I noticed this script downloads the Rawdata each time rather than  access from local disk
 """
 ##START SCRIPT
 import os
 import Functions
 import datetime
 import numpy as np
+from numpy import matlib as mb
 import pandas as pd
 tmpScriptName = os.path.basename(__file__)
 tmpStartTimeScript = datetime.datetime.now()
@@ -60,17 +66,43 @@ RawSECBBBEEDS = ReadRawData.RawDataSECBBBEEDS
 	
 
 ##STEP1: Identify in Datastream orice, bvps, mv, data where columns are Error, create Staging Datastream
-Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Start STEP1: Identify in Datastream orice, bvps, mv, data where columns are Error, create Staging Datastream: Find Columns Error')
+Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Start STEP1: Identify in Datastream price, bvps, mv, data where columns are Error, create Staging Datastream: Find Columns Error')
 
-#FIND COLUMNS ERROR
-tmpErrorStr = '$$ER: E100,INVALID CODE OR EXPRESSION ENTERED' #specific error message for Datastream
-tmpErrorPRICE = (np.array(RawPRICE) == tmpErrorStr) #creates bool array where is error
-tmpErrorBVPS = (np.array(RawBVPS) == tmpErrorStr)
-tmpErrorMV = (np.array(RawMV) == tmpErrorStr)
-tmpErrorTot = tmpErrorPRICE + tmpErrorBVPS + tmpErrorMV
-ErrorRow = tmpErrorTot[0,1:] #creates 1 array with true false (true is error), concluding finding Error Data
-ErrorRow2 = tmpErrorTot[0,:] 
-del tmpErrorStr, tmpErrorPRICE, tmpErrorBVPS, tmpErrorMV, tmpErrorTot
+#REMOVE DATES FROM DS DATA
+StagingPrice = np.array(RawPRICE)[:,1:] #select set of data without date
+StagingBVPS = np.array(RawBVPS)[:,1:]
+StagingMV = np.array(RawMV)[:,1:]
+
+#FIND AND REMOVE COLUMNS ERROR
+tmpErrorStr = '$$ER'
+ErrorRow = np.zeros(shape=StagingPrice.shape[1])
+for ii in range(StagingPrice.shape[1]):
+    tmpStrValues = np.array([str(StagingPrice[0,ii]),str(StagingBVPS[0,ii]),str(StagingMV[0,ii])]) 
+    tmpFalseValues = np.array(np.array(np.char.find(tmpStrValues, tmpErrorStr) == -1))[np.array(np.char.find(tmpStrValues, tmpErrorStr) != -1)] #np.char.find returns a value unequal to -1 if any of the values in the tmpArray contains '$$ER', here I ask to return a array where the values are unequal to -1 (so return the array which contains all the errors) 
+    if tmpFalseValues.shape[0] >0: 
+        ErrorRow[ii] = True
+    else:
+        ErrorRow[ii] = False
+del tmpStrValues,tmpFalseValues,ii
+Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Start STEP1: Identify in Datastream price, bvps, mv, data where columns are Error, create Staging Datastream: Finished Columns Error')
+StagingDates= Functions.DatesDF(RawPRICE['Name'])
+StagingPrice = pd.DataFrame(np.array(StagingPrice)[:,np.array(ErrorRow) == False]) #select set of data without error in data
+StagingBVPS = pd.DataFrame(np.array(StagingBVPS)[:,np.array(ErrorRow) == False])
+StagingMV = pd.DataFrame(np.array(StagingMV)[:,np.array(ErrorRow) == False])
+StagingPriceReturn = StagingPrice.pct_change()
+StagingLogPriceReturn = pd.DataFrame(np.log(1 + StagingPriceReturn))
+
+StagingBP = np.zeros(shape=StagingBVPS.shape)
+for x in range(StagingBVPS.shape[1]):    
+    StagingBP[:,x] = np.divide(np.array(StagingBVPS)[:,x], np.array(StagingPrice)[:,x])
+
+"""
+
+
+StagingMV = np.array(RawMV)[:,1:]
+StagingMV = pd.DataFrame(np.array(StagingMV)[:,np.array(ErrorRow) == False])
+
+
 
 #CREATE PREREQUISITE DATA STAGING DATASTREAM
 Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Start STEP1: Identify in Datastream price, bvps, mv, data where columns are Error, create Staging Datastream: Create Staging Datastream')
@@ -81,12 +113,13 @@ tmpColumnNames =np.array(RawPRICE.columns)
 tmpColumnNames2 = pd.DataFrame((tmpColumnNames[tmpStagingDSAvailableVec2 == False]))
 tmpColumnNames2[0][0] = 'Year' 
 del tmpColumnNames
-"""
+
 #CREATE DATAFRAMES STAGING DATASTREAM
+StagingDates= Functions.DatesDF(RawPRICE['Name'])
 StagingPrice = pd.DataFrame(np.array(RawPRICE)[:,tmpStagingDSAvailableVec[0,:] == False])
 StagingBVPS = pd.DataFrame(np.array(RawBVPS)[:,tmpStagingDSAvailableVec[0,:] == False])
 StagingMV = pd.DataFrame(np.array(RawMV)[:,tmpStagingDSAvailableVec[0,:] == False])
-StagingPriceReturn = StagingPrice.pct_change() #CHECK!
+StagingPriceReturn = np.array(StagingPrice[:,1]).pct_change() #CHECK!
 StagingLogPriceReturn = pd.DataFrame(np.log(1 + StagingPriceReturn))
 StagingPriceReturn[0] = StagingPrice[0]
 StagingLogPriceReturn[0] = StagingPrice[0]
