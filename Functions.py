@@ -47,7 +47,6 @@ def LogFile(Message):
     #source: https://stackoverflow.com/questions/35898160/logging-module-not-writing-to-file?rq=1
 
 def DatesDF(InputDataFrame):
-    #STOPPED HERE
     from datetime import datetime
     import numpy as np
     import pandas as pd
