@@ -40,12 +40,14 @@
                 - Restructered the StagingPrice, MV BVPS etc. to make it simpler
                 - Added BP
                 - I noticed this script downloads the Rawdata each time rather than  access from local disk
+                - Added minimum shareprice to correct for penny stock
 """
 ##START SCRIPT
 import os
 import Functions
 import datetime
 import numpy as np
+import math
 from numpy import matlib as mb
 import pandas as pd
 tmpScriptName = os.path.basename(__file__)
@@ -78,25 +80,38 @@ tmpErrorStr = '$$ER'
 ErrorRow = np.zeros(shape=StagingPrice.shape[1])
 for ii in range(StagingPrice.shape[1]):
     tmpStrValues = np.array([str(StagingPrice[0,ii]),str(StagingBVPS[0,ii]),str(StagingMV[0,ii])]) 
-    tmpFalseValues = np.array(np.array(np.char.find(tmpStrValues, tmpErrorStr) == -1))[np.array(np.char.find(tmpStrValues, tmpErrorStr) != -1)] #np.char.find returns a value unequal to -1 if any of the values in the tmpArray contains '$$ER', here I ask to return a array where the values are unequal to -1 (so return the array which contains all the errors) 
+    tmpFalseValues = np.array(np.array(np.char.find(tmpStrValues, tmpErrorStr) == -1))[np.array(np.char.find(tmpStrValues, tmpErrorStr) != -1)] #np.char.find returns a value unequal to -1 if any of the values in the tmpArray contains '$$ER', here I ask to return a array where the values are unequal to -1 (so return the array which contains all the errors)     
     if tmpFalseValues.shape[0] >0: 
         ErrorRow[ii] = True
     else:
         ErrorRow[ii] = False
 del tmpStrValues,tmpFalseValues,ii
 Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Start STEP1: Identify in Datastream price, bvps, mv, data where columns are Error, create Staging Datastream: Finished Columns Error')
+
+# REMOVE PENNY STOCKS
+StagingPrice = pd.DataFrame(StagingPrice[:,ErrorRow == False]) #select set of data without error in data
+tmpMinSharePrice = 1
+tmpMaxTimeFail = math.ceil(0.1*StagingPrice.shape[0])
+tmpPriceFailSum = pd.DataFrame(np.zeros(shape=StagingPrice.shape))
+tmpPriceFailSum[(StagingPrice < tmpMinSharePrice)] = 1 #error terms not str() < int()
+tmpPriceFailCount = pd.DataFrame(np.sum(tmpPriceFailSum, axis=0)) #sums the amount of times per column price was under tmpMinSharePrice - note this ignores values with nan
+tmpPriceFailDummy = pd.DataFrame(np.zeros(shape=tmpPriceFailCount.shape))
+tmpPriceFailDummy[tmpPriceFailCount > tmpMaxTimeFail] = 1 #this shows about 90 companies more than 10% of the time lower than tmpMinSharePrice
+tmpPriceFailDummy = np.array(tmpPriceFailDummy)[:,0]
+ErrorRow = ErrorRow + tmpPriceFailDummy
+"""
+
 StagingDates= Functions.DatesDF(RawPRICE['Name'])
-StagingPrice = pd.DataFrame(np.array(StagingPrice)[:,np.array(ErrorRow) == False]) #select set of data without error in data
-StagingBVPS = pd.DataFrame(np.array(StagingBVPS)[:,np.array(ErrorRow) == False])
-StagingMV = pd.DataFrame(np.array(StagingMV)[:,np.array(ErrorRow) == False])
+StagingBVPS = pd.DataFrame(StagingBVPS[:,ErrorRow == False])
+StagingMV = pd.DataFrame(StagingMV[:,ErrorRow == False])
 StagingPriceReturn = StagingPrice.pct_change()
 StagingLogPriceReturn = pd.DataFrame(np.log(1 + StagingPriceReturn))
 
 StagingBP = np.zeros(shape=StagingBVPS.shape)
 for x in range(StagingBVPS.shape[1]):    
     StagingBP[:,x] = np.divide(np.array(StagingBVPS)[:,x], np.array(StagingPrice)[:,x])
+#remove columns where price hits 0
 
-"""
 
 
 StagingMV = np.array(RawMV)[:,1:]
