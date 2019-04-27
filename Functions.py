@@ -46,14 +46,27 @@ def LogFile(Message):
     logging.info(Message)
     #source: https://stackoverflow.com/questions/35898160/logging-module-not-writing-to-file?rq=1
 
-def StagingDates(InputDataFrame):
+def DatesDF(InputDataFrame):
     #STOPPED HERE
     from datetime import datetime
-    StagingDateTime = [date.to_datetime() for date in InputDataFrame]
-    StagingYear = [date.year for date in InputDataFrame]
-    StagingMonth = [date.month for date in InputDataFrame]
-    StagingDay = [date.day for date in InputDataFrame]
-    #Source: https://stackoverflow.com/questions/25852044/converting-pandas-tslib-timestamp-to-datetime-python
+    import numpy as np
+    import pandas as pd
+    tmpDateTime = [date.to_datetime() for date in InputDataFrame]
+    tmpYear = [date.year for date in InputDataFrame]
+    tmpMonth = [date.month for date in InputDataFrame]
+    tmpDay = [date.day for date in InputDataFrame]
+    tmpMonthEnd = np.array(tmpMonth) - np.concatenate((np.array(list([0])), np.array(tmpMonth)[:-1,]),axis=0)
+    tmpMonthEnd[0] = 0
+    tmpMonthEnd[tmpMonthEnd!=0] = 1    
+    DatesDF = pd.DataFrame({
+                        'DateTime':tmpDateTime,
+                        'Year':tmpYear,
+                        'Month':tmpMonth,
+                        'Day':tmpDay,
+                        'MonthEnd':tmpMonthEnd              
+                    })
+    return DatesDF
+    #source: https://stackoverflow.com/questions/25852044/converting-pandas-tslib-timestamp-to-datetime-python
 
 
 def StackDFDS(InputDataFrameName,ValueName,tmpStagingDSAvailableSECIDDataFrame):
