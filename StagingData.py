@@ -144,8 +144,6 @@ StackPriceReturn = Functions.StackDFDS_simple(StagingPriceReturn,'PriceReturn')
 StackPriceReturnCum = Functions.StackDFDS_simple(StagingPriceReturnCum,'PriceReturnCum')
 StackPriceLogReturn = Functions.StackDFDS_simple(StagingPriceLogReturn,'PriceLogReturn')
 StackPriceLogReturnCum = Functions.StackDFDS_simple(StagingPriceLogReturnCum,'PriceLogReturnCum')
-
-
 StagingDS = pd.DataFrame({
                         'DateID':np.array(StackPrice['DateID']),
                         'FirmID':np.array(StackPrice['FirmID'])                        
