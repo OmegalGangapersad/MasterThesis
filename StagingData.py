@@ -137,26 +137,32 @@ StackPriceLogReturn = Functions.StackDFDS_simple(StagingPriceLogReturn,'PriceLog
 StackPriceLogReturnCum = Functions.StackDFDS_simple(StagingPriceLogReturnCum,'PriceLogReturnCum')
 
 StackDS = pd.DataFrame({
-                        'DatesID':np.array(StackPrice['DatesID']),
+                        'DateID':np.array(StackPrice['DateID']),
                         'SECID':np.array(StackPrice['SECID'])                        
                         })
-StackDS =  pd.merge(StackDS,StackPrice, on=['SECID', 'DatesID'], how='left')    
-StackDS =  pd.merge(StackDS,StackBVPS, on=['SECID', 'DatesID'], how='left')
-StackDS =  pd.merge(StackDS,StackBP, on=['SECID', 'DatesID'], how='left')
-StackDS =  pd.merge(StackDS,StackMV, on=['SECID', 'DatesID'], how='left')
-StackDS =  pd.merge(StackDS,StackPriceReturn, on=['SECID', 'DatesID'], how='left')
-StackDS =  pd.merge(StackDS,StackPriceReturnCum, on=['SECID', 'DatesID'], how='left')
-StackDS =  pd.merge(StackDS,StackPriceLogReturn, on=['SECID', 'DatesID'], how='left')
-StackDS =  pd.merge(StackDS,StackPriceLogReturnCum, on=['SECID', 'DatesID'], how='left')
+StackDS =  pd.merge(StackDS,StackPrice, on=['SECID', 'DateID'], how='left')    
+StackDS =  pd.merge(StackDS,StackBVPS, on=['SECID', 'DateID'], how='left')
+StackDS =  pd.merge(StackDS,StackBP, on=['SECID', 'DateID'], how='left')
+StackDS =  pd.merge(StackDS,StackMV, on=['SECID', 'DateID'], how='left')
+StackDS =  pd.merge(StackDS,StackPriceReturn, on=['SECID', 'DateID'], how='left')
+StackDS =  pd.merge(StackDS,StackPriceReturnCum, on=['SECID', 'DateID'], how='left')
+StackDS =  pd.merge(StackDS,StackPriceLogReturn, on=['SECID', 'DateID'], how='left')
+StackDS =  pd.merge(StackDS,StackPriceLogReturnCum, on=['SECID', 'DateID'], how='left')
+
+#ADD YIELDS
+StagingYLD = RawYLD
+StagingYLD.columns = ['DateTime','US10YR','SA10YR','US2YR','SA2YR']
+StagingYLD = pd.merge(StagingYLD,StagingDates,on=['DateTime'],how='left')
+StagingYLD = pd.DataFrame({
+                            'DateID': np.array(StagingYLD['DateID']),
+                            'SA10YR': np.array(StagingYLD['SA10YR']),
+                            'SA2YR': np.array(StagingYLD['SA2YR']),
+                            'US10YR': np.array(StagingYLD['US10YR']),
+                            'US2YR': np.array(StagingYLD['US2YR']),
+                         })        
+StackDS = pd.merge(StackDS,StagingYLD, on='DateID', how='left')    
 
 
-
-"""
-y = StagingPrice    
-z = pd.DataFrame(y.stack())
-z = pd.DataFrame(z)
-z['SECID'] = z.index.get_level_values(1)
-z['DatesID'] = z.index.get_level_values(0)
 
 
 
