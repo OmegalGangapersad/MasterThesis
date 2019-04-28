@@ -45,6 +45,7 @@
             20190427:
                 - Further cleaned SECID
                 - Added cumulative returns
+                - Rewrote Stacking DS
                 
 """
 ##START SCRIPT
@@ -112,7 +113,7 @@ TotErrorRow = ErrorRow + PennyRow
 
 StagingPrice = pd.DataFrame(StagingPrice[:,TotErrorRow == False]) 
 StagingBVPS = pd.DataFrame(StagingBVPS[:,TotErrorRow == False])
-StagingBP = np.divide(np.array(StagingBVPS),np.array(StagingPrice))
+StagingBP = pd.DataFrame(np.divide(np.array(StagingBVPS),np.array(StagingPrice)))
 StagingMV = pd.DataFrame(StagingMV[:,TotErrorRow == False])
 StagingPriceReturn = StagingPrice.pct_change()
 StagingPriceReturnCum = (1+StagingPriceReturn).cumprod() -1
@@ -125,23 +126,32 @@ StagingSECID =StagingSECID.reset_index()
 StagingSECID['SECID'] = StagingSECID.index.get_level_values(0)
 StagingSECID.columns = ['Raw_SECID','RIC','ISIN','CompanyName','SECID']
 
-
-#STOPPED HERE
-
-   
-
+#CREATE STACKING DATA
 StackPrice = Functions.StackDFDS_simple(StagingPrice,'Price') 
+StackBVPS = Functions.StackDFDS_simple(StagingBVPS,'BVPS')
+StackBP = Functions.StackDFDS_simple(StagingBP,'BP')
+StackMV = Functions.StackDFDS_simple(StagingMV,'MV')
+StackPriceReturn = Functions.StackDFDS_simple(StagingPriceReturn,'PriceReturn')
+StackPriceReturnCum = Functions.StackDFDS_simple(StagingPriceReturnCum,'PriceReturnCum')
+StackPriceLogReturn = Functions.StackDFDS_simple(StagingPriceLogReturn,'PriceLogReturn')
+StackPriceLogReturnCum = Functions.StackDFDS_simple(StagingPriceLogReturnCum,'PriceLogReturnCum')
+
+StackDS = pd.DataFrame({
+                        'DatesID':np.array(StackPrice['DatesID']),
+                        'SECID':np.array(StackPrice['SECID'])                        
+                        })
+StackDS =  pd.merge(StackDS,StackPrice, on=['SECID', 'DatesID'], how='left')    
+StackDS =  pd.merge(StackDS,StackBVPS, on=['SECID', 'DatesID'], how='left')
+StackDS =  pd.merge(StackDS,StackBP, on=['SECID', 'DatesID'], how='left')
+StackDS =  pd.merge(StackDS,StackMV, on=['SECID', 'DatesID'], how='left')
+StackDS =  pd.merge(StackDS,StackPriceReturn, on=['SECID', 'DatesID'], how='left')
+StackDS =  pd.merge(StackDS,StackPriceReturnCum, on=['SECID', 'DatesID'], how='left')
+StackDS =  pd.merge(StackDS,StackPriceLogReturn, on=['SECID', 'DatesID'], how='left')
+StackDS =  pd.merge(StackDS,StackPriceLogReturnCum, on=['SECID', 'DatesID'], how='left')
+
 
 
 """
-
-OutputDF = pd.DataFrame(InputDataFrameName.stack())
-OutputDF['SECID'] = OutputDF.index.get_level_values(1)
-OutputDF['DatesID'] = OutputDF.index.get_level_values(0)
-OutputDF.columns = [ValueName,'DSAvailableSECID','Year']
-OutputDF.columns = [ValueName,'SECID','DatesID']
-    return OutputDF
-
 y = StagingPrice    
 z = pd.DataFrame(y.stack())
 z = pd.DataFrame(z)
