@@ -24,7 +24,8 @@
                 - Inserted download from into the script
             20190428:
                 - Added Sector classification
-                - Cleaned up the TRY to make sure it only downloads when files are not available                          
+                - Cleaned up the TRY to make sure it only downloads when files are not available
+                - Replaced SECID with FirmID                          
 """
 ##START SCRIPT
 import os
@@ -33,8 +34,8 @@ import pandas as pd
 import Functions
 import datetime
 
-def RawDataExcelToPython(ScriptName,ImportDirectory,FilenameBBBEE,FilenamePRICE,FilenameBVPS,FilenameMV,FilenameYLD,FilenameSEC,SheetGeneral,SheetSECDS,SheetSECBBBEEDS,FilenameSECTOR):    
-    global RawDataBBBEE, RawDataPRICE, RawDataBVPS, RawDataMV, RawDataYLD, RawDataSECDS, RawDataSECBBBEEDS, RawDataSECTOR
+def RawDataExcelToPython(ScriptName,ImportDirectory,FilenameBBBEE,FilenamePRICE,FilenameBVPS,FilenameMV,FilenameYLD,FilenameFIRM,SheetGeneral,SheetFIRMDS,SheetFIRMBBBEEDS,FilenameSECTOR):    
+    global RawDataBBBEE, RawDataPRICE, RawDataBVPS, RawDataMV, RawDataYLD, RawDataFIRMDS, RawDataFIRMBBBEEDS, RawDataSECTOR
     Functions.LogScript(ScriptName,datetime.datetime.now(),'RawDataExcelToPython: RawDataBBBEE')
     RawDataBBBEE = pd.read_excel(ImportDirectory + FilenameBBBEE['Value'].iloc[0],SheetGeneral)
     Functions.LogScript(ScriptName,datetime.datetime.now(),'RawDataExcelToPython: RawDataPRICE')
@@ -45,21 +46,21 @@ def RawDataExcelToPython(ScriptName,ImportDirectory,FilenameBBBEE,FilenamePRICE,
     RawDataMV = pd.read_excel(ImportDirectory + FilenameMV['Value'].iloc[0],SheetGeneral)
     Functions.LogScript(ScriptName,datetime.datetime.now(),'RawDataExcelToPython: RawDataYLD')
     RawDataYLD = pd.read_excel(ImportDirectory + FilenameYLD['Value'].iloc[0],SheetGeneral)   
-    Functions.LogScript(ScriptName,datetime.datetime.now(),'RawDataExcelToPython: RawDataSECDS')
-    RawDataSECDS = pd.read_excel(ImportDirectory + FilenameSEC['Value'].iloc[0],SheetSECDS)
-    Functions.LogScript(ScriptName,datetime.datetime.now(),'RawDataExcelToPython: RawDataSECBBBEEDS')
-    RawDataSECBBBEEDS = pd.read_excel(ImportDirectory + FilenameSEC['Value'].iloc[0],SheetSECBBBEEDS)
+    Functions.LogScript(ScriptName,datetime.datetime.now(),'RawDataExcelToPython: RawDataFIRMDS')
+    RawDataFIRMDS = pd.read_excel(ImportDirectory + FilenameFIRM['Value'].iloc[0],SheetFIRMDS)
+    Functions.LogScript(ScriptName,datetime.datetime.now(),'RawDataExcelToPython: RawDataFIRMBBBEEDS')
+    RawDataFIRMBBBEEDS = pd.read_excel(ImportDirectory + FilenameFIRM['Value'].iloc[0],SheetFIRMBBBEEDS)
     Functions.LogScript(ScriptName,datetime.datetime.now(),'RawDataExcelToPython: RawDataSECTOR')
     RawDataSECTOR = pd.read_excel(ImportDirectory + FilenameSECTOR['Value'].iloc[0],SheetGeneral)
-    return RawDataBBBEE, RawDataPRICE, RawDataBVPS, RawDataMV, RawDataYLD, RawDataSECDS, RawDataSECBBBEEDS, RawDataSECTOR
+    return RawDataBBBEE, RawDataPRICE, RawDataBVPS, RawDataMV, RawDataYLD, RawDataFIRMDS, RawDataFIRMBBBEEDS, RawDataSECTOR
 
-def DownloadRawData(ScriptName,ImportDirectory,Settings,FilenameBBBEE,FilenamePRICE,FilenameBVPS,FilenameMV,FilenameYLD,FilenameSEC, FilenameSECTOR):
+def DownloadRawData(ScriptName,ImportDirectory,Settings,FilenameBBBEE,FilenamePRICE,FilenameBVPS,FilenameMV,FilenameYLD,FilenameFIRM, FilenameSECTOR):
     IDBBBEE = pd.DataFrame(Settings[Settings['Parameter'] == 'FilenameBBBEE']['Comment'])
     IDPRICE = pd.DataFrame(Settings[Settings['Parameter'] == 'FilenamePRICE']['Comment'])
     IDBVPS = pd.DataFrame(Settings[Settings['Parameter'] == 'FilenameBVPS']['Comment'])
     IDMV = pd.DataFrame(Settings[Settings['Parameter'] == 'FilenameMV']['Comment'])
     IDYLD = pd.DataFrame(Settings[Settings['Parameter'] == 'FilenameYLD']['Comment'])
-    IDSEC = pd.DataFrame(Settings[Settings['Parameter'] == 'FilenameSEC']['Comment'])
+    IDFIRM = pd.DataFrame(Settings[Settings['Parameter'] == 'FilenameFIRM']['Comment'])
     IDSECTOR = pd.DataFrame(Settings[Settings['Parameter'] == 'FilenameSECTOR']['Comment'])
     Functions.LogScript(ScriptName,datetime.datetime.now(),'Download: RawDataBBBEE')
     Functions.download_file_from_google_drive(IDBBBEE['Comment'].iloc[0], ImportDirectory + FilenameBBBEE['Value'].iloc[0])
@@ -71,8 +72,8 @@ def DownloadRawData(ScriptName,ImportDirectory,Settings,FilenameBBBEE,FilenamePR
     Functions.download_file_from_google_drive(IDMV['Comment'].iloc[0], ImportDirectory + FilenameMV['Value'].iloc[0])
     Functions.LogScript(ScriptName,datetime.datetime.now(),'Download: RawDataYLD')
     Functions.download_file_from_google_drive(IDYLD['Comment'].iloc[0], ImportDirectory + FilenameYLD['Value'].iloc[0])
-    Functions.LogScript(ScriptName,datetime.datetime.now(),'Download: RawDataSEC')
-    Functions.download_file_from_google_drive(IDSEC['Comment'].iloc[0], ImportDirectory + FilenameSEC['Value'].iloc[0])    
+    Functions.LogScript(ScriptName,datetime.datetime.now(),'Download: RawDataFIRM')
+    Functions.download_file_from_google_drive(IDFIRM['Comment'].iloc[0], ImportDirectory + FilenameFIRM['Value'].iloc[0])    
     Functions.LogScript(ScriptName,datetime.datetime.now(),'Download: RawDataSECTOR')
     Functions.download_file_from_google_drive(IDSECTOR['Comment'].iloc[0], ImportDirectory + FilenameSECTOR['Value'].iloc[0])    
 
@@ -89,20 +90,20 @@ tmpFilenamePRICE = pd.DataFrame(tmpSettings[tmpSettings['Parameter'] == 'Filenam
 tmpFilenameBVPS = pd.DataFrame(tmpSettings[tmpSettings['Parameter'] == 'FilenameBVPS']['Value'])
 tmpFilenameMV = pd.DataFrame(tmpSettings[tmpSettings['Parameter'] == 'FilenameMV']['Value'])
 tmpFilenameYLD = pd.DataFrame(tmpSettings[tmpSettings['Parameter'] == 'FilenameYLD']['Value'])
-tmpFilenameSEC = pd.DataFrame(tmpSettings[tmpSettings['Parameter'] == 'FilenameSEC']['Value'])
+tmpFilenameFIRM = pd.DataFrame(tmpSettings[tmpSettings['Parameter'] == 'FilenameFIRM']['Value'])
 tmpFilenameSECTOR = pd.DataFrame(tmpSettings[tmpSettings['Parameter'] == 'FilenameSECTOR']['Value'])
 
 tmpSheetGeneral = 'Output'
-tmpSheetSECDS = 'Unique_RIC_ISIN_Mapping' #RIC retrieved data
-tmpSheetSECBBBEEDS = 'SourceName_RIC_Mapping' #BBBEE name RIC mapping
+tmpSheetFIRMDS = 'Unique_RIC_ISIN_Mapping' #RIC retrieved data
+tmpSheetFIRMBBBEEDS = 'SourceName_RIC_Mapping' #BBBEE name RIC mapping
 
 ##READ RAWDATA
 try:    
-    RawDataExcelToPython(tmpScriptName,tmpImportDirectory,tmpFilenameBBBEE,tmpFilenamePRICE,tmpFilenameBVPS,tmpFilenameMV,tmpFilenameYLD,tmpFilenameSEC,tmpSheetGeneral,tmpSheetSECDS,tmpSheetSECBBBEEDS,tmpFilenameSECTOR)
+    RawDataExcelToPython(tmpScriptName,tmpImportDirectory,tmpFilenameBBBEE,tmpFilenamePRICE,tmpFilenameBVPS,tmpFilenameMV,tmpFilenameYLD,tmpFilenameFIRM,tmpSheetGeneral,tmpSheetFIRMDS,tmpSheetFIRMBBBEEDS,tmpFilenameSECTOR)
 except:
-    DownloadRawData(tmpScriptName,tmpImportDirectory,tmpSettings,tmpFilenameBBBEE,tmpFilenamePRICE,tmpFilenameBVPS,tmpFilenameMV,tmpFilenameYLD,tmpFilenameSEC,tmpFilenameSECTOR)
-    RawDataExcelToPython(tmpScriptName,tmpImportDirectory,tmpFilenameBBBEE,tmpFilenamePRICE,tmpFilenameBVPS,tmpFilenameMV,tmpFilenameYLD,tmpFilenameSEC,tmpSheetGeneral,tmpSheetSECDS,tmpSheetSECBBBEEDS,tmpFilenameSECTOR)
+    DownloadRawData(tmpScriptName,tmpImportDirectory,tmpSettings,tmpFilenameBBBEE,tmpFilenamePRICE,tmpFilenameBVPS,tmpFilenameMV,tmpFilenameYLD,tmpFilenameFIRM,tmpFilenameSECTOR)
+    RawDataExcelToPython(tmpScriptName,tmpImportDirectory,tmpFilenameBBBEE,tmpFilenamePRICE,tmpFilenameBVPS,tmpFilenameMV,tmpFilenameYLD,tmpFilenameFIRM,tmpSheetGeneral,tmpSheetFIRMDS,tmpSheetFIRMBBBEEDS,tmpFilenameSECTOR)
 
 ##END SCRIPT
 Functions.LogScript(tmpScriptName,datetime.datetime.now(),'End Script, RunTime: '+ Functions.StrfTimeDelta(datetime.datetime.now()-tmpStartTimeScript))
-del tmpScriptName, tmpStartTimeScript, tmpMainDir, tmpImportDirectory, tmpSettings, tmpFilenameBBBEE, tmpFilenamePRICE, tmpFilenameBVPS, tmpFilenameMV, tmpFilenameYLD, tmpFilenameSEC, tmpSheetGeneral, tmpSheetSECDS, tmpSheetSECBBBEEDS
+del tmpScriptName, tmpStartTimeScript, tmpMainDir, tmpImportDirectory, tmpSettings, tmpFilenameBBBEE, tmpFilenamePRICE, tmpFilenameBVPS, tmpFilenameMV, tmpFilenameYLD, tmpFilenameFIRM, tmpSheetGeneral, tmpSheetFIRMDS, tmpSheetFIRMBBBEEDS
