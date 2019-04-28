@@ -7,7 +7,7 @@
 				1. Create Dates table called StagingDates - in which all dates are included, including their respective id, year, month, day, month end etc
 				2. Create StagingDS arrays - first create clean Staging Datastream Data (price,bvps,mv etc.)
 				3. Create FirmID table - in which all firms are included - including their id, name, ric etc.
-				4. Create StackDS - reshape the StagingDS arrays to make them more easily fittable with BBBEE data
+				4. Create StagingDS - reshape the StagingDS arrays to make them more easily fittable with BBBEE data
 				5. Create StagingBBBEE - create clean BBBEE table with compatible ids to make them more easily fittable with DS data
               6. Output
 @instruct:  Do not remove line 1 and 2. Code in this script on line 2 is used to be able to import other scripts as modules. 
@@ -50,7 +50,7 @@
                 - Rewrote Stacking DS
                 - Rewrote YLD to add to StackDS
                 - Rewrote Staging BBBBEE
-                
+                - Added Sector                
 """
 ##START SCRIPT
 import os
@@ -125,7 +125,6 @@ StagingPriceReturnCum = (1+StagingPriceReturn).cumprod() -1
 StagingPriceLogReturn = pd.DataFrame(np.log(1 + StagingPriceReturn))
 StagingPriceLogReturnCum = (1+StagingPriceReturn).cumprod() -1
 
-
 ##STEP3: CREATE STAGINGFIRMID 
 Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Start STEP3: Create StagingFirmID')
 StagingFirmID = pd.DataFrame(RawFIRMDS[TotErrorRow == False])
@@ -135,7 +134,7 @@ StagingFirmID.columns = ['Raw_FirmID','RIC','ISIN','CompanyName','FirmID']
 
 
 ##STEP4: REATE STACKDS
-Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Start STEP4: Create StackDS')
+Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Start STEP4: Create StagingDS')
 StackPrice = Functions.StackDFDS_simple(StagingPrice,'Price') 
 StackBVPS = Functions.StackDFDS_simple(StagingBVPS,'BVPS')
 StackBP = Functions.StackDFDS_simple(StagingBP,'BP')
@@ -144,6 +143,7 @@ StackPriceReturn = Functions.StackDFDS_simple(StagingPriceReturn,'PriceReturn')
 StackPriceReturnCum = Functions.StackDFDS_simple(StagingPriceReturnCum,'PriceReturnCum')
 StackPriceLogReturn = Functions.StackDFDS_simple(StagingPriceLogReturn,'PriceLogReturn')
 StackPriceLogReturnCum = Functions.StackDFDS_simple(StagingPriceLogReturnCum,'PriceLogReturnCum')
+
 
 StagingDS = pd.DataFrame({
                         'DateID':np.array(StackPrice['DateID']),
@@ -157,9 +157,11 @@ StagingDS =  pd.merge(StagingDS,StackPriceReturn, on=['FirmID', 'DateID'], how='
 StagingDS =  pd.merge(StagingDS,StackPriceReturnCum, on=['FirmID', 'DateID'], how='left')
 StagingDS =  pd.merge(StagingDS,StackPriceLogReturn, on=['FirmID', 'DateID'], how='left')
 StagingDS =  pd.merge(StagingDS,StackPriceLogReturnCum, on=['FirmID', 'DateID'], how='left')
+del StackBVPS,StackBP,StackMV,StackPriceReturn,StackPriceReturnCum,StackPriceLogReturn,StackPriceLogReturnCum
+del StagingBVPS,StagingBP,StagingMV,StagingPriceReturn,StagingPriceReturnCum,StagingPriceLogReturn,StagingPriceLogReturnCum
 
 #ADD YIELDS TO STACKDS
-Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Start STEP4: Create StackDS - ADD YIELDS TO STACKDS')
+Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Start STEP4: Create StagingDS - ADD YIELDS TO StagingDS')
 StagingYLD = RawYLD
 StagingYLD.columns = ['DateTime','US10YR','SA10YR','US2YR','SA2YR']
 StagingYLD = pd.merge(StagingYLD,StagingDates,on=['DateTime'],how='left')
@@ -173,6 +175,7 @@ StagingYLD = pd.DataFrame({
 StagingDS = pd.merge(StagingDS,StagingYLD, on='DateID', how='left')  
 
 #ADD SECTOR
+Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Start STEP4: Create StackDS - ADD Sector to both StagingDS and StagingFirmID')
 StagingSECTOR = RawDataSECTOR
 StagingSECTOR.columns = ['RIC','DS_SECTORNAME','DS_SECTORCODE','ICB_SECTORID','ICB_SECTORNAME']
 tmpSECTORID = StagingSECTOR[['DS_SECTORNAME']] #get DS_SECTORID
@@ -182,34 +185,11 @@ tmpSECTORID = tmpSECTORID.reset_index(drop=True)
 tmpSECTORID['DS_SECTORID'] = tmpSECTORID.index.get_level_values(0) #here DS_SECTORID is created
 StagingSECTOR = pd.merge(StagingSECTOR,tmpSECTORID,on='DS_SECTORNAME',how='left') 
 StagingSECTOR = StagingSECTOR[['RIC','DS_SECTORNAME','DS_SECTORID','ICB_SECTORNAME','ICB_SECTORID']]
-
-tmpSECTORCOLS = ["" for x in range(tmpSECTORID.shape[0]+1)] #https://stackoverflow.com/questions/6376886/what-is-the-best-way-to-create-a-string-array-in-python
-for ii in range(tmpSECTORID.shape[0]+1): #create a dummy variable name for all DS_SECTORS
-    if ii == 0:
-        tmpSECTORCOLS[ii] = 'RIC'
-    else:
-        tmpSECTORCOLS[ii] = str('DSDUMMY_' + str(tmpSECTORID['DS_SECTORNAME'][ii-1]))
-tmpSECTORCOLS = pd.DataFrame(tmpSECTORCOLS)
-tmpSECTORCOLS.columns = ['Name']
-
-tmpSECTORDummyMat = pd.DataFrame(np.zeros(shape=(StagingSECTOR.shape[0],tmpSECTORCOLS.shape[0])))
-tmpSECTORDummyMat.columns = tmpSECTORCOLS['Name']
-    
-    tmpSECTORID['DS_SECTORNAME'][0]       
-    
-    
-tmpValue = tmpSECTORID['DS_SECTORNAME']
-
-x = np.zeros(shape = (1,9))
-tmpDF2 = pd.DataFrame(x)
-tmpDF2.columns = tmpValue
+StagingFirmID = pd.merge(StagingFirmID,StagingSECTOR,on='RIC',how='left')
+tmpStagingSector = StagingFirmID[['FirmID','DS_SECTORID','ICB_SECTORID']]
+StagingDS = pd.merge(StagingDS,tmpStagingSector,on='FirmID',how='left')
 
 
-
-1. Add to stagingfirm  
-2. add to stackDS?
-
-"""
 ##STEP5: CREATE STAGING BBBEE
 Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Start STEP5: Create StagingBBBEE')
 tmpFIRMBBBEE = pd.DataFrame({
@@ -248,4 +228,3 @@ StagingBBBEE.to_csv(ExportDir + 'BBBEE.csv', encoding='utf-8', index=False)
 ##END SCRIPT
 Functions.LogScript(tmpScriptName,datetime.datetime.now(),'End Script, RunTime: '+ Functions.StrfTimeDelta(datetime.datetime.now()-tmpStartTimeScript))
 del tmpScriptName, tmpStartTimeScript
-"""
