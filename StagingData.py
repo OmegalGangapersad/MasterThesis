@@ -42,8 +42,13 @@
                 - I noticed this script downloads the Rawdata each time rather than  access from local disk
                 - Added minimum shareprice to correct for penny stock
                 - Added DateID, corrected SECID
+            20190427:
+                - Further cleaned SECID
+                - Added cumulative returns
+                
 """
 ##START SCRIPT
+
 import os
 import Functions
 import datetime
@@ -74,18 +79,17 @@ Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Start STEP1: Identify
 #CREATE DATES DATAFRAMEWORK
 StagingDates= Functions.DatesDF(RawPRICE['Name'])
 
-#CREATE SECID FRAMEWORK
-StagingDSSECID = pd.DataFrame(RawSECDS['RIC']) #base SECID on RIC
-
-#REMOVE DATES FROM DS DATA
+#REMOVE DATES COLUMN FROM DS DATA
 StagingPrice = np.array(RawPRICE)[:,1:] #select set of data without date
+StagingPrice = pd.DataFrame(StagingPrice)
+StagingPrice[StagingPrice==0] = 0.01
+StagingPrice = np.array(StagingPrice)
 StagingBVPS = np.array(RawBVPS)[:,1:]
 StagingMV = np.array(RawMV)[:,1:]
 
-
 #FIND AND REMOVE COLUMNS ERROR AND PENNY STOCKS
 tmpErrorStr = '$$ER'
-tmpMinSharePrice = 1
+tmpMinSharePrice = 0.01
 tmpMaxTimeFail = math.ceil(0.1*StagingPrice.shape[0])
 ErrorRow = np.zeros(shape=StagingPrice.shape[1])
 PennyRow = np.zeros(shape=StagingPrice.shape[1])
@@ -110,28 +114,39 @@ StagingPrice = pd.DataFrame(StagingPrice[:,TotErrorRow == False])
 StagingBVPS = pd.DataFrame(StagingBVPS[:,TotErrorRow == False])
 StagingBP = np.divide(np.array(StagingBVPS),np.array(StagingPrice))
 StagingMV = pd.DataFrame(StagingMV[:,TotErrorRow == False])
-StagingDSSECID = pd.DataFrame(StagingDSSECID[TotErrorRow == False])
-StagingDSSECID['SECID'] = StagingDSSECID.index.get_level_values(0)
 StagingPriceReturn = StagingPrice.pct_change()
-StagingLogPriceReturn = pd.DataFrame(np.log(1 + StagingPriceReturn))
+StagingPriceReturnCum = (1+StagingPriceReturn).cumprod() -1
+StagingPriceLogReturn = pd.DataFrame(np.log(1 + StagingPriceReturn))
+StagingPriceLogReturnCum = (1+StagingPriceReturn).cumprod() -1
 
+#CREATE SECID FRAMEWORK
+StagingSECID = pd.DataFrame(RawSECDS[TotErrorRow == False])
+StagingSECID =StagingSECID.reset_index()
+StagingSECID['SECID'] = StagingSECID.index.get_level_values(0)
+StagingSECID.columns = ['Raw_SECID','RIC','ISIN','CompanyName','SECID']
 
 
 #STOPPED HERE
-y = StagingPrice
-    y = y.set_index([0])
-    z = y.stack()
-    z = pd.DataFrame(z)
-    z['SECID'] = z.index.get_level_values(1) 
-    z = pd.merge(z['SECID'], StagingDSSECID, on='Index', how='left')
-    
-    
-z = y.stack()
+
+   
+
+StackPrice = Functions.StackDFDS_simple(StagingPrice,'Price') 
 
 
+"""
 
-#CREATE SECID
+OutputDF = pd.DataFrame(InputDataFrameName.stack())
+OutputDF['SECID'] = OutputDF.index.get_level_values(1)
+OutputDF['DatesID'] = OutputDF.index.get_level_values(0)
+OutputDF.columns = [ValueName,'DSAvailableSECID','Year']
+OutputDF.columns = [ValueName,'SECID','DatesID']
+    return OutputDF
 
+y = StagingPrice    
+z = pd.DataFrame(y.stack())
+z = pd.DataFrame(z)
+z['SECID'] = z.index.get_level_values(1)
+z['DatesID'] = z.index.get_level_values(0)
 
 
 
