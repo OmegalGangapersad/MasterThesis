@@ -43,7 +43,7 @@
                 - I noticed this script downloads the Rawdata each time rather than  access from local disk
                 - Added minimum shareprice to correct for penny stock
                 - Added DateID, corrected FirmID
-            20190427:
+            20190428:
                 - Replaced SECID with FirmID
                 - Further cleaned FirmID
                 - Added cumulative returns
@@ -52,6 +52,7 @@
                 - Rewrote Staging BBBBEE
                 - Added Sector   
                 - Cleaned code
+                - rounded calculations BP and returns on 2 decimals
 """
 ##START SCRIPT
 import os
@@ -120,11 +121,17 @@ TotErrorRow = ErrorRow + PennyRow
 StagingPrice = pd.DataFrame(StagingPrice[:,TotErrorRow == False]) 
 StagingBVPS = pd.DataFrame(StagingBVPS[:,TotErrorRow == False])
 StagingBP = pd.DataFrame(np.divide(np.array(StagingBVPS),np.array(StagingPrice)))
+StagingBP = pd.DataFrame(np.round(StagingBP.astype(np.double),2))    #round at 2 decimals, do not need extreme precision which costs more memory
 StagingMV = pd.DataFrame(StagingMV[:,TotErrorRow == False])
 StagingPriceReturn = StagingPrice.pct_change()
+StagingPriceReturn = pd.DataFrame(np.round(StagingPriceReturn.astype(np.double),4))
 StagingPriceReturnCum = (1+StagingPriceReturn).cumprod() -1
+StagingPriceReturnCum = pd.DataFrame(np.round(StagingPriceReturnCum.astype(np.double),4))
 StagingPriceLogReturn = pd.DataFrame(np.log(1 + StagingPriceReturn))
+StagingPriceLogReturn = pd.DataFrame(np.round(StagingPriceLogReturn.astype(np.double),4))
 StagingPriceLogReturnCum = (1+StagingPriceReturn).cumprod() -1
+StagingPriceLogReturnCum = pd.DataFrame(np.round(StagingPriceLogReturnCum.astype(np.double),4))
+
 
 ##STEP3: CREATE STAGINGFIRMID 
 Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Start STEP3: Create StagingFirmID')
