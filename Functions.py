@@ -10,10 +10,13 @@
             - the importdirectory to the user's selected directory - always
             - the BBBEE, PRICE, BVPS, MV, YLD or SEC - if user altered source filenames
 @update  : Date (yyyyMMdd)
-               20190215
-               - Added logs
-               20190424
-               - Added Google drive shareable link download               
+               20190215:
+                   - Added logs
+               20190424:
+                   - Added Google drive shareable link download                                  
+               20190428:
+                   - Adjusted Dates function to incorporate BBBEEdummy and ReturnYearEndDummy and simplify month end calculation
+                   - Created new simpler stacking function StackDFDS_simple
 """ 
 
 def LogScript(ScriptName, Time, LogComment):
@@ -55,20 +58,34 @@ def DatesDF(InputDataFrame):
     tmpMonth = [date.month for date in InputDataFrame]
     tmpDay = [date.day for date in InputDataFrame]
     tmpDateID = np.array(InputDataFrame.index.get_level_values(0))
-    tmpMonthEnd = np.array(tmpMonth) - np.concatenate((np.array(list([0])), np.array(tmpMonth)[:-1,]),axis=0)
-    tmpMonthEnd[0] = 0
-    tmpMonthEnd[tmpMonthEnd!=0] = 1    
+    MonthEndDummy = np.array(pd.DataFrame(tmpMonth) - pd.DataFrame(tmpMonth).shift(1))
+    MonthEndDummy[0] = 1
+    MonthEndDummy[MonthEndDummy!=0] = 1   
+    MonthEndDummy = np.array(MonthEndDummy)[:,0] 
+    BBBEEReleaseDateDummy = np.zeros(shape=InputDataFrame.shape[0])
+    ReturnYearEndDummy = np.zeros(shape=InputDataFrame.shape[0])
     DatesDF = pd.DataFrame({
                         'DateID':tmpDateID,            
                         'DateTime':tmpDateTime,
                         'Year':tmpYear,
                         'Month':tmpMonth,
                         'Day':tmpDay,
-                        'MonthEnd':tmpMonthEnd              
+                        'MonthEndDummy':MonthEndDummy,
+                        'BBBEEReleaseDateDummy':BBBEEReleaseDateDummy,
+                        'ReturnYearEndDummy':ReturnYearEndDummy
                     })
     return DatesDF
     #source: https://stackoverflow.com/questions/25852044/converting-pandas-tslib-timestamp-to-datetime-python
 
+def StackDFDS_simple(InputDataFrameName,ValueName):
+    import pandas as pd
+    OutputDF = pd.DataFrame(InputDataFrameName.stack())
+    OutputDF['SECID'] = OutputDF.index.get_level_values(1)
+    OutputDF['DatesID'] = OutputDF.index.get_level_values(0)
+    OutputDF.columns = [ValueName,'DSAvailableSECID','Year']
+    OutputDF.columns = [ValueName,'SECID','DatesID']
+    OutputDF = OutputDF.reset_index(drop=True)
+    return OutputDF
 
 def StackDFDS(InputDataFrameName,ValueName,tmpStagingDSAvailableSECIDDataFrame):
     import pandas as pd
