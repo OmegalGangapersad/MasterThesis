@@ -6,7 +6,7 @@
 @Purpose :  Clean RawData table to produce a single clean table with data which can be used to perform analysis on. This is realised by walking through these steps
 				1. Create Dates table called StagingDates - in which all dates are included, including their respective id, year, month, day, month end etc
 				2. Create StagingDS arrays - first create clean Staging Datastream Data (price,bvps,mv etc.)
-				3. Create SECID table - in which all firms are included - including their id, name, ric etc.
+				3. Create FirmID table - in which all firms are included - including their id, name, ric etc.
 				4. Create StackDS - reshape the StagingDS arrays to make them more easily fittable with BBBEE data
 				5. Create StagingBBBEE - create clean BBBEE table with compatible ids to make them more easily fittable with DS data
               6. Output
@@ -42,9 +42,10 @@
                 - Added BP
                 - I noticed this script downloads the Rawdata each time rather than  access from local disk
                 - Added minimum shareprice to correct for penny stock
-                - Added DateID, corrected SECID
+                - Added DateID, corrected FirmID
             20190427:
-                - Further cleaned SECID
+                - Replaced SECID with FirmID
+                - Further cleaned FirmID
                 - Added cumulative returns
                 - Rewrote Stacking DS
                 - Rewrote YLD to add to StackDS
@@ -127,12 +128,12 @@ StagingPriceLogReturn = pd.DataFrame(np.log(1 + StagingPriceReturn))
 StagingPriceLogReturnCum = (1+StagingPriceReturn).cumprod() -1
 
 
-##STEP3: CREATE STAGINGSECID 
-Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Start STEP3: Create StagingSECID')
-StagingSECID = pd.DataFrame(RawSECDS[TotErrorRow == False])
-StagingSECID =StagingSECID.reset_index()
-StagingSECID['SECID'] = StagingSECID.index.get_level_values(0)
-StagingSECID.columns = ['Raw_SECID','RIC','ISIN','CompanyName','SECID']
+##STEP3: CREATE STAGINGFIRMID 
+Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Start STEP3: Create StagingFirmID')
+StagingFirmID = pd.DataFrame(RawSECDS[TotErrorRow == False])
+StagingFirmID =StagingFirmID.reset_index()
+StagingFirmID['FirmID'] = StagingFirmID.index.get_level_values(0)
+StagingFirmID.columns = ['Raw_FirmID','RIC','ISIN','CompanyName','FirmID']
 
 
 ##STEP4: REATE STACKDS
@@ -148,16 +149,16 @@ StackPriceLogReturnCum = Functions.StackDFDS_simple(StagingPriceLogReturnCum,'Pr
 
 StagingDS = pd.DataFrame({
                         'DateID':np.array(StackPrice['DateID']),
-                        'SECID':np.array(StackPrice['SECID'])                        
+                        'FirmID':np.array(StackPrice['FirmID'])                        
                         })
-StagingDS =  pd.merge(StagingDS,StackPrice, on=['SECID', 'DateID'], how='left')    
-StagingDS =  pd.merge(StagingDS,StackBVPS, on=['SECID', 'DateID'], how='left')
-StagingDS =  pd.merge(StagingDS,StackBP, on=['SECID', 'DateID'], how='left')
-StagingDS =  pd.merge(StagingDS,StackMV, on=['SECID', 'DateID'], how='left')
-StagingDS =  pd.merge(StagingDS,StackPriceReturn, on=['SECID', 'DateID'], how='left')
-StagingDS =  pd.merge(StagingDS,StackPriceReturnCum, on=['SECID', 'DateID'], how='left')
-StagingDS =  pd.merge(StagingDS,StackPriceLogReturn, on=['SECID', 'DateID'], how='left')
-StagingDS =  pd.merge(StagingDS,StackPriceLogReturnCum, on=['SECID', 'DateID'], how='left')
+StagingDS =  pd.merge(StagingDS,StackPrice, on=['FirmID', 'DateID'], how='left')    
+StagingDS =  pd.merge(StagingDS,StackBVPS, on=['FirmID', 'DateID'], how='left')
+StagingDS =  pd.merge(StagingDS,StackBP, on=['FirmID', 'DateID'], how='left')
+StagingDS =  pd.merge(StagingDS,StackMV, on=['FirmID', 'DateID'], how='left')
+StagingDS =  pd.merge(StagingDS,StackPriceReturn, on=['FirmID', 'DateID'], how='left')
+StagingDS =  pd.merge(StagingDS,StackPriceReturnCum, on=['FirmID', 'DateID'], how='left')
+StagingDS =  pd.merge(StagingDS,StackPriceLogReturn, on=['FirmID', 'DateID'], how='left')
+StagingDS =  pd.merge(StagingDS,StackPriceLogReturnCum, on=['FirmID', 'DateID'], how='left')
 
 #ADD YIELDS TO STACKDS
 Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Start STEP4: Create StackDS - ADD YIELDS TO STACKDS')
@@ -182,10 +183,10 @@ tmpSECBBBEE = pd.DataFrame({
                             })
 tmpSECBBBEE = tmpSECBBBEE.drop_duplicates() #get unique values of companyname and RIC to prevent bloat in merge below line
 StagingBBBEE = pd.merge(RawBBBEE,tmpSECBBBEE,on='CompanyName', how='left') #get RIC into StagingBBBEE
-StagingBBBEE = pd.merge(StagingBBBEE,StagingSECID,on='RIC',how='left') #get SECID into StagingBBBEE
+StagingBBBEE = pd.merge(StagingBBBEE,StagingFirmID,on='RIC',how='left') #get FirmID into StagingBBBEE
 StagingBBBEE = pd.DataFrame({
                             'Year': np.array(StagingBBBEE['Year']),
-                            'SECID': np.array(StagingBBBEE['SECID']),
+                            'FirmID': np.array(StagingBBBEE['FirmID']),
                             'BBBEE_Rank': np.array(StagingBBBEE['Rank']),
                             'BBBEE_Score': np.array(StagingBBBEE['Score_BEE']),
                             'BBBEE_OWN': np.array(StagingBBBEE['Score_Ownership']),
@@ -196,16 +197,18 @@ StagingBBBEE = pd.DataFrame({
                             'BBBEE_ENT': np.array(StagingBBBEE['Score_EnterpriseDevelopment']), 
                             'BBBEE_SOC': np.array(StagingBBBEE['Score_SocioEconomicDevelopment'])                       
                             })
-StagingBBBEE = StagingBBBEE[['Year','SECID','BBBEE_Rank','BBBEE_Score','BBBEE_OWN','BBBEE_MAN','BBBEE_EMP','BBBEE_SKL','BBBEE_PRF','BBBEE_ENT','BBBEE_SOC']] #force order
+StagingBBBEE = StagingBBBEE[['Year','FirmID','BBBEE_Rank','BBBEE_Score','BBBEE_OWN','BBBEE_MAN','BBBEE_EMP','BBBEE_SKL','BBBEE_PRF','BBBEE_ENT','BBBEE_SOC']] #force order
+
 
 ##STEP6: OUTPUT
 Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Start STEP6: Output')
 MainDir = os.path.dirname(os.path.realpath(__file__)) #working directory
 ExportDir = MainDir + '\\Input\\StagingData\\' 
 StagingDates.to_csv(ExportDir + 'Dates.csv', encoding='utf-8', index=False)
-StagingSECID.to_csv(ExportDir + 'SECID.csv', encoding='utf-8', index=False)
+StagingFirmID.to_csv(ExportDir + 'Firm.csv', encoding='utf-8', index=False)
 StagingDS.to_csv(ExportDir + 'DS.csv', encoding='utf-8', index=False)
 StagingBBBEE.to_csv(ExportDir + 'BBBEE.csv', encoding='utf-8', index=False)
+
 
 ##END SCRIPT
 Functions.LogScript(tmpScriptName,datetime.datetime.now(),'End Script, RunTime: '+ Functions.StrfTimeDelta(datetime.datetime.now()-tmpStartTimeScript))
