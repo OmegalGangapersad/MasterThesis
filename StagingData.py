@@ -53,13 +53,11 @@
                 
 """
 ##START SCRIPT
-
 import os
 import Functions
 import datetime
 import numpy as np
 import math
-from numpy import matlib as mb
 import pandas as pd
 tmpScriptName = os.path.basename(__file__)
 tmpStartTimeScript = datetime.datetime.now()
@@ -74,8 +72,8 @@ RawPRICE = ReadRawData.RawDataPRICE
 RawBVPS = ReadRawData.RawDataBVPS
 RawMV = ReadRawData.RawDataMV
 RawYLD = ReadRawData.RawDataYLD
-RawSECDS = ReadRawData.RawDataSECDS
-RawSECBBBEEDS = ReadRawData.RawDataSECBBBEEDS
+RawFIRMDS = ReadRawData.RawDataFIRMDS
+RawFIRMBBBEEDS = ReadRawData.RawDataFIRMBBBEEDS
 	
 
 ##STEP1: CREATE STAGINGDATES
@@ -130,7 +128,7 @@ StagingPriceLogReturnCum = (1+StagingPriceReturn).cumprod() -1
 
 ##STEP3: CREATE STAGINGFIRMID 
 Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Start STEP3: Create StagingFirmID')
-StagingFirmID = pd.DataFrame(RawSECDS[TotErrorRow == False])
+StagingFirmID = pd.DataFrame(RawFIRMDS[TotErrorRow == False])
 StagingFirmID =StagingFirmID.reset_index()
 StagingFirmID['FirmID'] = StagingFirmID.index.get_level_values(0)
 StagingFirmID.columns = ['Raw_FirmID','RIC','ISIN','CompanyName','FirmID']
@@ -177,12 +175,12 @@ StagingDS = pd.merge(StagingDS,StagingYLD, on='DateID', how='left')
 
 ##STEP5: CREATE STAGING BBBEE
 Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Start STEP5: Create StagingBBBEE')
-tmpSECBBBEE = pd.DataFrame({
-                            'CompanyName': np.array(RawSECBBBEEDS['Name']),
-                            'RIC': np.array(RawSECBBBEEDS['RIC']),
+tmpFIRMBBBEE = pd.DataFrame({
+                            'CompanyName': np.array(RawFIRMBBBEEDS['Name']),
+                            'RIC': np.array(RawFIRMBBBEEDS['RIC']),
                             })
-tmpSECBBBEE = tmpSECBBBEE.drop_duplicates() #get unique values of companyname and RIC to prevent bloat in merge below line
-StagingBBBEE = pd.merge(RawBBBEE,tmpSECBBBEE,on='CompanyName', how='left') #get RIC into StagingBBBEE
+tmpFIRMBBBEE = tmpFIRMBBBEE.drop_duplicates() #get unique values of companyname and RIC to prevent bloat in merge below line
+StagingBBBEE = pd.merge(RawBBBEE,tmpFIRMBBBEE,on='CompanyName', how='left') #get RIC into StagingBBBEE
 StagingBBBEE = pd.merge(StagingBBBEE,StagingFirmID,on='RIC',how='left') #get FirmID into StagingBBBEE
 StagingBBBEE = pd.DataFrame({
                             'Year': np.array(StagingBBBEE['Year']),
