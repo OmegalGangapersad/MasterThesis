@@ -54,10 +54,12 @@ def DatesDF(InputDataFrame):
     tmpYear = [date.year for date in InputDataFrame]
     tmpMonth = [date.month for date in InputDataFrame]
     tmpDay = [date.day for date in InputDataFrame]
+    tmpDateID = np.array(InputDataFrame.index.get_level_values(0))
     tmpMonthEnd = np.array(tmpMonth) - np.concatenate((np.array(list([0])), np.array(tmpMonth)[:-1,]),axis=0)
     tmpMonthEnd[0] = 0
     tmpMonthEnd[tmpMonthEnd!=0] = 1    
     DatesDF = pd.DataFrame({
+                        'DateID':tmpDateID,            
                         'DateTime':tmpDateTime,
                         'Year':tmpYear,
                         'Month':tmpMonth,
