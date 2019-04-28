@@ -74,7 +74,7 @@ RawMV = ReadRawData.RawDataMV
 RawYLD = ReadRawData.RawDataYLD
 RawFIRMDS = ReadRawData.RawDataFIRMDS
 RawFIRMBBBEEDS = ReadRawData.RawDataFIRMBBBEEDS
-	
+RawDataSECTOR = ReadRawData.RawDataSECTOR
 
 ##STEP1: CREATE STAGINGDATES
 Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Start STEP1: Create StagingDates')
@@ -170,9 +170,46 @@ StagingYLD = pd.DataFrame({
                             'US10YR': np.array(StagingYLD['US10YR']),
                             'US2YR': np.array(StagingYLD['US2YR']),
                          })        
-StagingDS = pd.merge(StagingDS,StagingYLD, on='DateID', how='left')    
+StagingDS = pd.merge(StagingDS,StagingYLD, on='DateID', how='left')  
+
+#ADD SECTOR
+StagingSECTOR = RawDataSECTOR
+StagingSECTOR.columns = ['RIC','DS_SECTORNAME','DS_SECTORCODE','ICB_SECTORID','ICB_SECTORNAME']
+tmpSECTORID = StagingSECTOR[['DS_SECTORNAME']] #get DS_SECTORID
+tmpSECTORID = tmpSECTORID.drop_duplicates()
+tmpSECTORID = tmpSECTORID.sort_values('DS_SECTORNAME')
+tmpSECTORID = tmpSECTORID.reset_index(drop=True)
+tmpSECTORID['DS_SECTORID'] = tmpSECTORID.index.get_level_values(0) #here DS_SECTORID is created
+StagingSECTOR = pd.merge(StagingSECTOR,tmpSECTORID,on='DS_SECTORNAME',how='left') 
+StagingSECTOR = StagingSECTOR[['RIC','DS_SECTORNAME','DS_SECTORID','ICB_SECTORNAME','ICB_SECTORID']]
+
+tmpSECTORCOLS = ["" for x in range(tmpSECTORID.shape[0]+1)] #https://stackoverflow.com/questions/6376886/what-is-the-best-way-to-create-a-string-array-in-python
+for ii in range(tmpSECTORID.shape[0]+1): #create a dummy variable name for all DS_SECTORS
+    if ii == 0:
+        tmpSECTORCOLS[ii] = 'RIC'
+    else:
+        tmpSECTORCOLS[ii] = str('DSDUMMY_' + str(tmpSECTORID['DS_SECTORNAME'][ii-1]))
+tmpSECTORCOLS = pd.DataFrame(tmpSECTORCOLS)
+tmpSECTORCOLS.columns = ['Name']
+
+tmpSECTORDummyMat = pd.DataFrame(np.zeros(shape=(StagingSECTOR.shape[0],tmpSECTORCOLS.shape[0])))
+tmpSECTORDummyMat.columns = tmpSECTORCOLS['Name']
+    
+    tmpSECTORID['DS_SECTORNAME'][0]       
+    
+    
+tmpValue = tmpSECTORID['DS_SECTORNAME']
+
+x = np.zeros(shape = (1,9))
+tmpDF2 = pd.DataFrame(x)
+tmpDF2.columns = tmpValue
 
 
+
+1. Add to stagingfirm  
+2. add to stackDS?
+
+"""
 ##STEP5: CREATE STAGING BBBEE
 Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Start STEP5: Create StagingBBBEE')
 tmpFIRMBBBEE = pd.DataFrame({
@@ -211,3 +248,4 @@ StagingBBBEE.to_csv(ExportDir + 'BBBEE.csv', encoding='utf-8', index=False)
 ##END SCRIPT
 Functions.LogScript(tmpScriptName,datetime.datetime.now(),'End Script, RunTime: '+ Functions.StrfTimeDelta(datetime.datetime.now()-tmpStartTimeScript))
 del tmpScriptName, tmpStartTimeScript
+"""
