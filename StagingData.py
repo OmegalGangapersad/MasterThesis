@@ -50,7 +50,8 @@
                 - Rewrote Stacking DS
                 - Rewrote YLD to add to StackDS
                 - Rewrote Staging BBBBEE
-                - Added Sector                
+                - Added Sector   
+                - Cleaned code
 """
 ##START SCRIPT
 import os
@@ -172,7 +173,8 @@ StagingYLD = pd.DataFrame({
                             'US10YR': np.array(StagingYLD['US10YR']),
                             'US2YR': np.array(StagingYLD['US2YR']),
                          })        
-StagingDS = pd.merge(StagingDS,StagingYLD, on='DateID', how='left')  
+StagingDS = pd.merge(StagingDS,StagingYLD, on='DateID', how='left') 
+del StagingYLD
 
 #ADD SECTOR
 Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Start STEP4: Create StackDS - ADD Sector to both StagingDS and StagingFirmID')
@@ -188,6 +190,7 @@ StagingSECTOR = StagingSECTOR[['RIC','DS_SECTORNAME','DS_SECTORID','ICB_SECTORNA
 StagingFirmID = pd.merge(StagingFirmID,StagingSECTOR,on='RIC',how='left')
 tmpStagingSector = StagingFirmID[['FirmID','DS_SECTORID','ICB_SECTORID']]
 StagingDS = pd.merge(StagingDS,tmpStagingSector,on='FirmID',how='left')
+del tmpSECTORID, StagingSECTOR
 
 
 ##STEP5: CREATE STAGING BBBEE
