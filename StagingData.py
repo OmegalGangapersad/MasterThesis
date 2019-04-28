@@ -149,7 +149,7 @@ StackDS =  pd.merge(StackDS,StackPriceReturnCum, on=['SECID', 'DateID'], how='le
 StackDS =  pd.merge(StackDS,StackPriceLogReturn, on=['SECID', 'DateID'], how='left')
 StackDS =  pd.merge(StackDS,StackPriceLogReturnCum, on=['SECID', 'DateID'], how='left')
 
-#ADD YIELDS
+#ADD YIELDS TO STACKDS
 StagingYLD = RawYLD
 StagingYLD.columns = ['DateTime','US10YR','SA10YR','US2YR','SA2YR']
 StagingYLD = pd.merge(StagingYLD,StagingDates,on=['DateTime'],how='left')
@@ -162,10 +162,31 @@ StagingYLD = pd.DataFrame({
                          })        
 StackDS = pd.merge(StackDS,StagingYLD, on='DateID', how='left')    
 
+#CREATE STAGING BBBEE
+tmpSECBBBEE = pd.DataFrame({
+                            'CompanyName': np.array(RawSECBBBEEDS['Name']),
+                            'RIC': np.array(RawSECBBBEEDS['RIC']),
+                            })
+tmpSECBBBEE = tmpSECBBBEE.drop_duplicates() #get unique values of companyname and RIC to prevent bloat in merge below line
+StagingBBBEE = pd.merge(RawBBBEE,tmpSECBBBEE,on='CompanyName', how='left') #get RIC into StagingBBBEE
+StagingBBBEE = pd.merge(StagingBBBEE,StagingSECID,on='RIC',how='left') #get SECID into StagingBBBEE
+StagingBBBEE = pd.DataFrame({
+                            'Year': np.array(StagingBBBEE['Year']),
+                            'SECID': np.array(StagingBBBEE['SECID']),
+                            'BBBEE_Rank': np.array(StagingBBBEE['Rank']),
+                            'BBBEE_Score': np.array(StagingBBBEE['Score_BEE']),
+                            'BBBEE_OWN': np.array(StagingBBBEE['Score_Ownership']),
+                            'BBBEE_MAN': np.array(StagingBBBEE['Score_Management']),
+                            'BBBEE_EMP': np.array(StagingBBBEE['Score_EmploymentEquity']),
+                            'BBBEE_SKL': np.array(StagingBBBEE['Score_SkillsDevelopment']),                       
+                            'BBBEE_PRF': np.array(StagingBBBEE['Score_PreferentialProcurement']), 
+                            'BBBEE_ENT': np.array(StagingBBBEE['Score_EnterpriseDevelopment']), 
+                            'BBBEE_SOC': np.array(StagingBBBEE['Score_SocioEconomicDevelopment'])                       
+                            })
+StagingBBBEE = StagingBBBEE[['Year','SECID','BBBEE_Rank','BBBEE_Score','BBBEE_OWN','BBBEE_MAN','BBBEE_EMP','BBBEE_SKL','BBBEE_PRF','BBBEE_ENT','BBBEE_SOC']] #force order
 
 
-
-
+"""
 #CREATE PREREQUISITE DATA STAGING DATASTREAM
 Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Start STEP1: Identify in Datastream price, bvps, mv, data where columns are Error, create Staging Datastream: Create Staging Datastream')
 tmpDSMat = np.array(RawPRICE)
