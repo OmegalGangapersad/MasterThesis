@@ -80,27 +80,11 @@ def DatesDF(InputDataFrame):
 def StackDFDS_simple(InputDataFrameName,ValueName):
     import pandas as pd
     OutputDF = pd.DataFrame(InputDataFrameName.stack())
-    OutputDF['SECID'] = OutputDF.index.get_level_values(1)
-    OutputDF['DatesID'] = OutputDF.index.get_level_values(0)
-    OutputDF.columns = [ValueName,'DSAvailableSECID','Year']
-    OutputDF.columns = [ValueName,'SECID','DatesID']
+    OutputDF['FirmID'] = OutputDF.index.get_level_values(1)
+    OutputDF['DateID'] = OutputDF.index.get_level_values(0)
+    OutputDF.columns = [ValueName,'FirmID','DateID']
     OutputDF = OutputDF.reset_index(drop=True)
     return OutputDF
-
-def StackDFDS(InputDataFrameName,ValueName,tmpStagingDSAvailableSECIDDataFrame):
-    import pandas as pd
-    import numpy as np
-    y = InputDataFrameName
-    y = y.set_index([0])
-    z = y.stack()
-    z = pd.DataFrame(z)
-    z['tmpSECID'] = z.index.get_level_values(1) #sec, must do - 1 to get mapping to index
-    z['tmpSECID'] = np.array(z['tmpSECID'])-1
-    z['tmpYear'] = z.index.get_level_values(0) 
-    z.columns = [ValueName,'DSAvailableSECID','Year']
-    z = pd.merge(z, tmpStagingDSAvailableSECIDDataFrame, on='DSAvailableSECID', how='left')
-    del z['DSAvailableSECID']
-    return z
 
 def download_file_from_google_drive(id, destination):    
     import requests
