@@ -17,6 +17,9 @@
                20190428:
                    - Adjusted Dates function to incorporate BBBEEdummy and ReturnYearEndDummy and simplify month end calculation
                    - Created new simpler stacking function StackDFDS_simple
+                   - Removed old StackDFDS
+                   - Replaced SECID with FirmID
+                   - Added code in comment to create sector dummy matrix
 """ 
 
 def LogScript(ScriptName, Time, LogComment):
@@ -168,4 +171,44 @@ TmpDF1 = tmpSourceDataFrame[tmpSourceDataFrame[str(tmpLoopGroup1Name)]==tmpLoopG
     df['BVPS_Rank'] = df['BVPS'].rank() 
     df['MV_Rank'] = df['MV'].rank() 
     df2 = df[['Year','LogPriceReturn_Rank','BBBEE_Rank','BVPS_Rank','MV_Rank']].copy()
+    
+CODE TO CREATE DUMMY VARIABLE SECTORS
+
+for ii in range(tmpSECTORID.shape[0]): #create a dummy variable name for all DS_SECTORS
+    tmpColumnName = str('DSDUMMY_' + str(tmpSECTORID['DS_SECTORNAME'][ii]))
+    tmpSECTORDummyMat = pd.DataFrame(np.zeros(shape=(StagingSECTOR.shape[0],1)))
+    tmpSECTORDummyMat[StagingSECTOR['DS_SECTORNAME'] == str(tmpSECTORID['DS_SECTORNAME'][ii])] = 1
+    StagingSECTOR[str(tmpColumnName)] = tmpSECTORDummyMat
+
+#UNCOMMENT BELOW TO ADD ICB SECTOR
+tmpSECTORID_ICB =  StagingSECTOR[['ICB_SECTORNAME']]   
+tmpSECTORID_ICB = tmpSECTORID_ICB.drop_duplicates()
+tmpSECTORID_ICB = tmpSECTORID_ICB.reset_index(drop=True)
+for ii in range(tmpSECTORID_ICB.shape[0]): #create a dummy variable name for all DS_SECTORS
+    tmpColumnName = str('ICBDUMMY_' + str(tmpSECTORID_ICB['ICB_SECTORNAME'][ii]))
+    tmpSECTORDummyMat = pd.DataFrame(np.zeros(shape=(StagingSECTOR.shape[0],1)))
+    tmpSECTORDummyMat[StagingSECTOR['ICB_SECTORNAME'] == str(tmpSECTORID_ICB['ICB_SECTORNAME'][ii])] = 1
+    StagingSECTOR[str(tmpColumnName)] = tmpSECTORDummyMat
+
+
+
+#CREATE STAGINGSECTOR DS
+tmpSECTORMat = StagingFirmID.drop(['Raw_FirmID','RIC','ISIN','CompanyName','DS_SECTORNAME','ICB_SECTORNAME','ICB_SECTORID'], axis=1) #create this tmpMat to join to StagingDS
+StagingSECTORDS = pd.DataFrame({
+                        'DateID':np.array(StackPrice['DateID']),
+                        'FirmID':np.array(StackPrice['FirmID'])                        
+                        })
+StagingSECTORDS =pd.merge(StagingSECTORDS,tmpSECTORMat,on='FirmID',how='left')
+
+#CREATE STAGINGSECTOR ICB
+tmpSECTORMat = StagingFirmID.drop(['Raw_FirmID','RIC','ISIN','CompanyName','DS_SECTORNAME','ICB_SECTORNAME','DS_SECTORID'], axis=1) #create this tmpMat to join to StagingDS
+StagingSECTORDS = pd.DataFrame({
+                        'DateID':np.array(StackPrice['DateID']),
+                        'FirmID':np.array(StackPrice['FirmID'])                        
+                        })
+StagingSECTORDS =pd.merge(StagingSECTORDS,tmpSECTORMat,on='FirmID',how='left')
+
+
+StagingDS = pd.merge(StagingDS,tmpSECTORMat,on='FirmID',how='left')
+    
 """
