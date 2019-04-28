@@ -41,6 +41,7 @@
                 - Added BP
                 - I noticed this script downloads the Rawdata each time rather than  access from local disk
                 - Added minimum shareprice to correct for penny stock
+                - Added DateID, corrected SECID
 """
 ##START SCRIPT
 import os
@@ -73,10 +74,14 @@ Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Start STEP1: Identify
 #CREATE DATES DATAFRAMEWORK
 StagingDates= Functions.DatesDF(RawPRICE['Name'])
 
+#CREATE SECID FRAMEWORK
+StagingDSSECID = pd.DataFrame(RawSECDS['RIC']) #base SECID on RIC
+
 #REMOVE DATES FROM DS DATA
 StagingPrice = np.array(RawPRICE)[:,1:] #select set of data without date
 StagingBVPS = np.array(RawBVPS)[:,1:]
 StagingMV = np.array(RawMV)[:,1:]
+
 
 #FIND AND REMOVE COLUMNS ERROR AND PENNY STOCKS
 tmpErrorStr = '$$ER'
@@ -103,9 +108,30 @@ TotErrorRow = ErrorRow + PennyRow
 
 StagingPrice = pd.DataFrame(StagingPrice[:,TotErrorRow == False]) 
 StagingBVPS = pd.DataFrame(StagingBVPS[:,TotErrorRow == False])
+StagingBP = np.divide(np.array(StagingBVPS),np.array(StagingPrice))
 StagingMV = pd.DataFrame(StagingMV[:,TotErrorRow == False])
+StagingDSSECID = pd.DataFrame(StagingDSSECID[TotErrorRow == False])
+StagingDSSECID['SECID'] = StagingDSSECID.index.get_level_values(0)
 StagingPriceReturn = StagingPrice.pct_change()
 StagingLogPriceReturn = pd.DataFrame(np.log(1 + StagingPriceReturn))
+
+
+
+#STOPPED HERE
+y = StagingPrice
+    y = y.set_index([0])
+    z = y.stack()
+    z = pd.DataFrame(z)
+    z['SECID'] = z.index.get_level_values(1) 
+    z = pd.merge(z['SECID'], StagingDSSECID, on='Index', how='left')
+    
+    
+z = y.stack()
+
+
+
+#CREATE SECID
+
 
 
 
