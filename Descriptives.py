@@ -14,6 +14,9 @@
             20120215:               
                 - Created script
                 - Played with plots
+            20120429:   
+                - Rewrote reading StagingData
+                - Created segment to create working dataframe
 """
 
 ##START SCRIPT
@@ -48,20 +51,35 @@ except:
 
 
 Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Start STEP2: Create working dataset called df') 
-# DEFINE DF CRITERIA
+# DEFINE DF CRITERIA - CAN BE LOOPED OVER
 BBBEEMonth = 4 #define month where BBBEE is released - April is value from van der Merwe paper
 BBBEELag = 4 #define months Lag from BBBEE release Month - you can adjust this value to check when market reacts
 MonthYearEnd = BBBEEMonth + BBBEELag #define month for year end to calculate
 
 StagingDates.loc[(StagingDates['Month'] == BBBEEMonth) & (StagingDates['MonthEndDummy'] == 1),'BBBEEReleaseDateDummy'] = StagingDates.loc[(StagingDates['Month'] == BBBEEMonth) & (StagingDates['MonthEndDummy'] == 1),'Year'] #put year in BBBEEdummy to identify from where BBBEE scores run
 StagingDates.loc[(StagingDates['Month'] == MonthYearEnd) & (StagingDates['MonthEndDummy'] == 1),'ReturnYearEndDummy'] = StagingDates.loc[(StagingDates['Month'] == MonthYearEnd) & (StagingDates['MonthEndDummy'] == 1),'Year'] #put year in BBBEEdummy to identify from where Return year end run
-StagingDS = pd.merge(StagingDS,pd.DataFrame(StagingDates[['DateID','ReturnYearEndDummy']]),on='DateID',how='left') #create column with ReturnYearEndDummy to merge with StagingBBBEE
-
-df = StagingDS.loc[StagingDS['ReturnYearEndDummy']!=0] #this will return more rows than StagingBBBEE because StagingBBBEE only capture sec year combination for which there is a BBBEE score df captures the sec even when there is no BBBEE score
-df.columns.values[16]='Year'
+tmpYear = StagingDates[['DateID','ReturnYearEndDummy']]
+tmpYear.columns = ['DateID','Year'] 
+StagingDS = pd.merge(StagingDS,pd.DataFrame(tmpYear),on='DateID',how='left') #create column with ReturnYearEndDummy to merge with StagingBBBEE
+df = StagingDS.loc[StagingDS['Year']!=0] #this will return more rows than StagingBBBEE because StagingBBBEE only capture sec year combination for which there is a BBBEE score df captures the sec even when there is no BBBEE score
 df = pd.merge(df,StagingBBBEE,on=['Year','FirmID'], how='left')
 
+
+
+
 """
+1. Define BBBEE lag - DONE
+
+2. Create yearly dataset
+in stagingdates where monthend and month are condition fill year then BBBEE left join based on that to DS
+calculate annual return ds based on this - DONE
+
+3. Check number of firms with BBBEE score/without BBBEE score per year
+
+4. Check number of firms per sector per year - compare with JSE All share Index
+
+
+
 
 #StagingDates['BBBEEReleaseDateDummy'] = StagingDates['BBBEEReleaseDateDummy'].replace(to_replace=0, method='ffill') #fill BBBEEReleaseDateDummy with value till next year end - completing year id for each date
 #StagingDates['ReturnYearEndDummy'] = StagingDates['ReturnYearEndDummy'].replace(to_replace=0, method='ffill') #fill YearEnd with value till next year end - completing year id for each date
@@ -76,13 +94,6 @@ StagingBBBEE = pd.merge(RawBBBEE,tmpFIRMBBBEE,on='CompanyName', how='left')
      
 
 
-1. Define BBBEE lag
-2. Create yearly dataset
-in stagingdates where monthend and month are condition fill year then BBBEE left join based on that to DS
-calculate annual return ds based on this
-
-3. Check number of firms with BBBEE score/without BBBEE score per year
-4. Check number of firms per sector per year - compare with JSE All share Index
 
 
 
