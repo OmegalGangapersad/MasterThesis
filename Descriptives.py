@@ -21,6 +21,7 @@
             20190430:
                 - Created annual return fir, riskfree, market
                 - Created dataset ready for (regression) analysis
+                - Identified a method to cap outliers
 """
 
 ##START SCRIPT
@@ -110,8 +111,33 @@ Dataset = df[['Year','FirmID','FirmLogReturn','BP','SIZE','BBBEE_Rank']]
 Dataset = pd.merge(Dataset, MarketPremium, on='Year',how='left')
 Dataset = pd.merge(Dataset, RiskFreeReturn, on='Year',how='left')
 Dataset = Dataset.loc[(Dataset['Year']>=BBBEEStartYear)]
+Dataset.to_excel(ExportDir + 'Dataset.xlsx', sheet_name='Input') 
 
+OverviewIncNaN = Dataset.describe(include = [np.number])
 
+#cap outliers - nans
+tmpFirmReturn = Dataset[['Year','FirmID','FirmLogReturn']] 
+tmpFirmReturn = tmpFirmReturn.dropna()
+OverviewFirmReturn = tmpFirmReturn.describe()
+Distribution_FirmLogReturn = sns.distplot(np.array(tmpFirmReturn['FirmLogReturn']))  # getDistribution of FirmReturn
+Distribution_FirmLogReturn = Distribution_FirmLogReturn.get_figure() #save distribution of FirmReturn
+Distribution_FirmLogReturn.savefig(ExportDir + 'Distribution_FirmLogReturn.png')             #save distribution of FirmReturn
+
+tmpBP = Dataset[['Year','FirmID','BP']] #add new tmpBP to new dataset
+tmpBP = tmpBP.dropna()
+OverviewBP = tmpBP.describe()
+Distribution_BP = sns.distplot(np.array(tmpBP['BP']))  # getDistribution of FirmReturn
+Distribution_BP = Distribution_BP.get_figure() #save distribution of FirmReturn
+Distribution_BP.savefig(ExportDir + 'Distribution_BP.png')             #save distribution of FirmReturn
+minBP = OverviewBP['BP']['mean'] - (2*OverviewBP['BP']['std']) #handle outlier minimum
+maxBP = OverviewBP['BP']['mean'] + (2*OverviewBP['BP']['std']) #handle outlier max
+tmpBP.loc[(tmpBP['BP']<=minBP)] = minBP
+tmpBP.loc[(tmpBP['BP']>=maxBP)] = maxBP
+OverviewBP2 = tmpBP.describe()
+minFirmReturn = OverviewFirmReturn['FirmLogReturn']['25%'] #handle outlier minimum
+maxFirmReturn = OverviewFirmReturn['FirmLogReturn']['75%'] #handle outlier minimum
+
+#NEXT STEPS: CREATE A FUNCTION FOR CREATING DESCRIBES AND HANDLE OUTLIERS
 
 
 """
