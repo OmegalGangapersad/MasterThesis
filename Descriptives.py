@@ -17,6 +17,7 @@
             20120429:   
                 - Rewrote reading StagingData
                 - Created segment to create working dataframe
+                - Created descriptives of count observations - total and per sector
 """
 
 ##START SCRIPT
@@ -31,6 +32,8 @@ tmpScriptName = os.path.basename(__file__)
 tmpStartTimeScript = datetime.datetime.now()
 tmpScriptName = os.path.basename(__file__)
 Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Start Script')
+MainDir = os.path.dirname(os.path.realpath(__file__)) #working directory
+ExportDir = MainDir + '\\Output\\Descriptives\\' 
 
 ##READ STAGING DATA
 Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Start STEP1: Read StagingData') 
@@ -38,7 +41,7 @@ try:
     InputFilenameBBBEE = 'BBBEE.csv'
     InputFilenameDS = 'DS.csv'
     InputFilenameFirm = 'Firm.csv'
-    InputFilenameDates = 'Dates.csv'
+    InputFilenameDates = 'Dates.csv'  
     tmpMainDir = os.path.dirname(os.path.realpath(__file__)) #working directory
     tmpImportDirectory = tmpMainDir + '\\Input\\StagingData\\' 
     StagingBBBEE = pd.read_csv(tmpImportDirectory + InputFilenameBBBEE)
@@ -64,6 +67,11 @@ StagingDS = pd.merge(StagingDS,pd.DataFrame(tmpYear),on='DateID',how='left') #cr
 df = StagingDS.loc[StagingDS['Year']!=0] #this will return more rows than StagingBBBEE because StagingBBBEE only capture sec year combination for which there is a BBBEE score df captures the sec even when there is no BBBEE score
 df = pd.merge(df,StagingBBBEE,on=['Year','FirmID'], how='left')
 
+ObsVariableYear = df.groupby('Year').count() #Check number of firms with BBBEE score/without BBBEE score per year
+ObsSectorYearCount = df.pivot_table(['BBBEE_Rank','Price'], index='Year', columns='DS_SECTORID', aggfunc='count') #Check number of firms per sector per year - compare with JSE All share Index - Price as proxy for all observations
+ObsVariableYear.to_excel(ExportDir + 'ObsVariableYear.xlsx', sheet_name='Input')
+ObsSectorYearCount.to_excel(ExportDir + 'ObsSectorYearCount.xlsx', sheet_name='Input') #work in excel to create %percentages
+
 
 
 
@@ -75,6 +83,7 @@ in stagingdates where monthend and month are condition fill year then BBBEE left
 calculate annual return ds based on this - DONE
 
 3. Check number of firms with BBBEE score/without BBBEE score per year
+x = ObsV.describe()
 
 4. Check number of firms per sector per year - compare with JSE All share Index
 
