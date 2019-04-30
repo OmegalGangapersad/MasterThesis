@@ -71,10 +71,8 @@ ObsVariableYear = df.groupby('Year').count() #Check number of firms with BBBEE s
 ObsSectorYearCount = df.pivot_table(['BBBEE_Rank','Price'], index='Year', columns='DS_SECTORID', aggfunc='count') #Check number of firms per sector per year - compare with JSE All share Index - Price as proxy for all observations
 ObsVariableYear.to_excel(ExportDir + 'ObsVariableYear.xlsx', sheet_name='Input')
 ObsSectorYearCount.to_excel(ExportDir + 'ObsSectorYearCount.xlsx', sheet_name='Input') #work in excel to create %percentages
-<<<<<<< HEAD
 
-=======
->>>>>>> 8980219135c001d6c0a493cfd082606588608efd
+Test = 1
 
 
 
