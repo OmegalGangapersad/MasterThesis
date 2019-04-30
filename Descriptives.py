@@ -11,13 +11,16 @@
 				5. Output StagingData to csv
 @instruct:  Do not remove line 1 and 2. Code in this script on line 2 is used to be able to import other scripts as modules. 
 @update  :  Date (yyyyMMdd)
-            20120215:               
+            20190215:               
                 - Created script
                 - Played with plots
-            20120429:   
+            20190429:   
                 - Rewrote reading StagingData
                 - Created segment to create working dataframe
                 - Created descriptives of count observations - total and per sector
+            20190430:
+                - Created annual return fir, riskfree, market
+                - Created dataset ready for (regression) analysis
 """
 
 ##START SCRIPT
@@ -72,11 +75,59 @@ ObsSectorYearCount = df.pivot_table(['BBBEE_Rank','Price'], index='Year', column
 ObsVariableYear.to_excel(ExportDir + 'ObsVariableYear.xlsx', sheet_name='Input')
 ObsSectorYearCount.to_excel(ExportDir + 'ObsSectorYearCount.xlsx', sheet_name='Input') #work in excel to create %percentages
 
-Test = 1
+# Calculate Yearly return and market premium
+y = df.pivot_table('PriceLogReturnCum', index='Year', columns='FirmID')
+y = y.fillna(0) #replace nan with 0 to be able to calculate yearly return
+YearlyLogReturn = pd.DataFrame(np.array((1+y)/(1+ y.shift(1))-1)) #calculate yearly return
+MarketLogReturn = np.nanmean(np.array(YearlyLogReturn), axis=1) #market return is the average return of all observations
+YearlyLogReturn[YearlyLogReturn == 0] = float('nan')
+FirmLogReturn = pd.DataFrame(YearlyLogReturn.stack())
+FirmLogReturn.columns = ['FirmLogReturn']
+FirmLogReturn['dfIndex'] = FirmLogReturn.index.get_level_values(0)
+FirmLogReturn['FirmID'] = FirmLogReturn.index.get_level_values(1)
+y = y.reset_index() #get year as column
+y['dfIndex'] = y.index.get_level_values(0) #get row id as column
+tmpYear = y[['Year','dfIndex']] # established mapping year and row id
+FirmLogReturn = pd.merge(FirmLogReturn,tmpYear,on='dfIndex',how='left')
+df = pd.merge(df,FirmLogReturn,on=['Year','FirmID'],how='left')
+
+RiskFreeReturn = df[['Year','SA10YR']]
+RiskFreeReturn = RiskFreeReturn.drop_duplicates()
+RiskFreeReturn['SA10YR'] = RiskFreeReturn['SA10YR']/100
+RiskFreeReturn.columns = ['Year','RiskFreeReturn']
+MarketPremium = MarketLogReturn - RiskFreeReturn['RiskFreeReturn']
+MarketPremium = pd.DataFrame(MarketPremium)
+MarketPremium = MarketPremium.reset_index(drop=True)
+MarketPremium['Year'] = tmpYear['Year']
+MarketPremium.columns = ['MarketPremium','Year']
+MarketLogReturn = pd.DataFrame(MarketLogReturn)
+MarketLogReturn = MarketLogReturn.reset_index(drop=True)
+MarketLogReturn['Year'] = tmpYear['Year']
+MarketLogReturn.columns = ['MarketLogReturn','Year']
+
+BBBEEStartYear = 2004
+Dataset = df[['Year','FirmID','FirmLogReturn','BP','SIZE','BBBEE_Rank']]
+Dataset = pd.merge(Dataset, MarketPremium, on='Year',how='left')
+Dataset = pd.merge(Dataset, RiskFreeReturn, on='Year',how='left')
+Dataset = Dataset.loc[(Dataset['Year']>=BBBEEStartYear)]
+
 
 
 
 """
+
+#notes
+df2[cols] = df2[cols].replace({'0':np.nan, 0:np.nan}
+z = pd.DataFrame(df.columns)
+p = df.loc[(df['FirmID'] == 5)]
+np.mean(a, axis=0)
+x = np.array(YearlyLogReturn)
+z = 
+
+x = YearlyLogReturn.groupby('Year').mean()
+x = pd.DataFrame(YearlyLogReturn.mean())
+x = df.describe()
+
 1. Define BBBEE lag - DONE
 
 2. Create yearly dataset
