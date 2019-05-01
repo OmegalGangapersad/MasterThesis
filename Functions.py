@@ -20,6 +20,9 @@
                    - Removed old StackDFDS
                    - Replaced SECID with FirmID
                    - Added code in comment to create sector dummy matrix
+               20190501:
+                   - Created outlier function
+                   
 """ 
 
 def LogScript(ScriptName, Time, LogComment):
@@ -115,13 +118,42 @@ def save_response_content(response, destination):
             if chunk: # filter out keep-alive new chunks
                 f.write(chunk)
     #source: https://stackoverflow.com/questions/38511444/python-download-files-from-google-drive-using-url
-                
+
+def CapOutliers(InputDataFrame, InputColumn):
+    import seaborn as sns
+    import numpy as np
+    import os    
+    MainDir = os.path.dirname(os.path.realpath(__file__)) #working directory
+    ExportDir = MainDir + '\\Output\\Descriptives\\' 
+    
+    tmpDF = InputDataFrame[['Year','FirmID',InputColumn]]
+    tmpDF = tmpDF.dropna()
+    tmpDF = tmpDF.drop_duplicates()
+    tmpPreOutlierOverview = tmpDF.describe()
+    tmpPreOutlierOverview.to_excel(ExportDir + InputColumn + 'PreOutlierOverview.xlsx', sheet_name='Input') 
+    tmpPreOutlierPlot = sns.distplot(np.array(tmpDF[InputColumn]))  # getDistribution of InputColumn
+    tmpPreOutlierPlot = tmpPreOutlierPlot.get_figure() #save distribution of InputColumn
+    tmpPreOutlierPlot.savefig(ExportDir + InputColumn + '_PreOutlierDistribution.png')
+    minValue = tmpPreOutlierOverview[InputColumn]['mean'] - (2*tmpPreOutlierOverview[InputColumn]['std']) #handle outlier minimum
+    maxValue = tmpPreOutlierOverview[InputColumn]['mean'] + (2*tmpPreOutlierOverview[InputColumn]['std']) #handle outlier max
+    tmpDF.loc[(tmpDF[InputColumn]<=minValue),InputColumn] = minValue
+    tmpDF.loc[(tmpDF[InputColumn]>=maxValue),InputColumn] = maxValue
+    tmpPostOutlierPlot = sns.distplot(np.array(tmpDF[InputColumn]))  # getDistribution of InputColumn
+    tmpPostOutlierPlot = tmpPostOutlierPlot.get_figure() #save distribution of InputColumn
+    tmpPostOutlierPlot.savefig(ExportDir + InputColumn + '_PostOutlierDistribution.png')
+    tmpPostOutlierOverview = tmpDF.describe()
+    tmpPostOutlierOverview.to_excel(ExportDir + InputColumn + 'PostOutlierOverview.xlsx', sheet_name='Input') 
+   
+    return tmpDF
+
+
+"""
 def RankingPerGroup(tmpColumns, tmpGroupOnColumnsInt, tmpSourceDataFrame): #enabled for list based grouping
     import pandas as pd
     import numpy as np    
     tmpGrouping = tmpColumnGroup
     tmpLoopGroup = ColumnGroup.iloc[0] 
-"""
+
 #start function   
 #libs
 import pandas as pd
