@@ -24,6 +24,7 @@
                 - Identified a method to cap outliers
             20190501:
                 - Finished outliers - and export thereof - next add multiple years. Found positive (low R2 Annual LogReturn and BBBEE score!)
+                - Rerank BBBEE to adjust for missing data
 """
 
 ##START SCRIPT
