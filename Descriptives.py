@@ -22,6 +22,8 @@
                 - Created annual return fir, riskfree, market
                 - Created dataset ready for (regression) analysis
                 - Identified a method to cap outliers
+            20190501:
+                - Finished outliers - and export thereof - next add multiple years. Found positive (low R2 Annual LogReturn and BBBEE score!)
 """
 
 ##START SCRIPT
@@ -113,15 +115,97 @@ Dataset = pd.merge(Dataset, RiskFreeReturn, on='Year',how='left')
 Dataset = Dataset.loc[(Dataset['Year']>=BBBEEStartYear)]
 Dataset.to_excel(ExportDir + 'Dataset.xlsx', sheet_name='Input') 
 
-OverviewIncNaN = Dataset.describe(include = [np.number])
+#get describe of 2nd layer dataset
+ObsSectorYearCount2 = Dataset.groupby('Year').count()
+MinBBBEECount = round(ObsSectorYearCount2['BBBEE_Rank'].min(),-1) # find lowest number of observations BBBEE Rank rounded on nearest 10
 
+Dataset2 = Dataset 
+#adjust ranking
+tmpDataset2Years = Dataset2['Year'].unique()
+tmpCleanRank = Dataset2.groupby('Year')['BBBEE_Rank'].rank(ascending=True) #rerank BBBEE based on year
+Dataset2['BBBEE_Rank'] = tmpCleanRank
+Dataset2.loc[(Dataset2['BBBEE_Rank'] > MinBBBEECount),'BBBEE_Rank'] = float('nan')
+ObsVariableYearCount3 = Dataset2.groupby('Year').count()
+Dataset2.to_excel(ExportDir + 'Dataset2.xlsx', sheet_name='Input') 
+
+OverviewIncNaN = Dataset.describe(include = [np.number]) #pre outlier overview
+
+Dataset3 = Dataset2[['Year','FirmID','BBBEE_Rank','RiskFreeReturn','MarketPremium']]
+Dataset3 = Dataset3.reset_index(drop=True)
+tmpColumns = ['FirmLogReturn','BP','SIZE']
+
+for ii in range(len(tmpColumns)):
+    inpColumn = str(tmpColumns[ii])
+    tmpDF1 = Functions.CapOutliers(Dataset2,inpColumn)
+    Dataset3 = pd.merge(Dataset3,tmpDF1,on=['Year','FirmID'],how='left')
+    
+
+Dataset3.to_excel(ExportDir + 'Dataset3.xlsx', sheet_name='Input') 
+"""
+
+
+    InputDataFrame = Dataset2
+    InputColumn = inpColumn
+    
+    
+    tmpDF = InputDataFrame[['Year','FirmID',InputColumn]]
+    tmpDF = tmpDF.dropna()
+    tmpPreOutlierOverview = tmpDF.describe()
+    tmpPreOutlierOverview.to_excel(ExportDir + InputColumn + 'PreOutlierOverview.xlsx', sheet_name='Input') 
+    tmpPreOutlierPlot = sns.distplot(np.array(tmpDF[InputColumn]))  # getDistribution of InputColumn
+    tmpPreOutlierPlot = tmpPreOutlierPlot.get_figure() #save distribution of InputColumn
+    tmpPreOutlierPlot.savefig(ExportDir + InputColumn + '_PreOutlierDistribution.png')
+    minValue = tmpPreOutlierOverview[InputColumn]['mean'] - (2*tmpPreOutlierOverview[InputColumn]['std']) #handle outlier minimum
+    maxValue = tmpPreOutlierOverview[InputColumn]['mean'] + (2*tmpPreOutlierOverview[InputColumn]['std']) #handle outlier max
+    tmpDF.loc[(tmpDF[InputColumn]<=minValue),InputColumn] = minValue
+    tmpDF.loc[(tmpDF[InputColumn]>=maxValue),InputColumn] = maxValue
+    tmpPostOutlierPlot = sns.distplot(np.array(tmpDF[InputColumn]))  # getDistribution of InputColumn
+    tmpPostOutlierPlot = tmpPostOutlierPlot.get_figure() #save distribution of InputColumn
+    tmpPostOutlierPlot.savefig(ExportDir + InputColumn + '_PostOutlierDistribution.png')
+    tmpPostOutlierOverview = tmpDF.describe()
+    tmpPostOutlierOverview.to_excel(ExportDir + InputColumn + 'PostOutlierOverview.xlsx', sheet_name='Input') 
+   
+    
+    tmpDF1 = tmpDF
+    tmpDF1 = tmpDF1.reset_index(drop=True)
+    
+    tmpDF1 = Functions.CapOutliers(Dataset2,inpColumn)
+    Dataset3 = pd.merge(Dataset3,tmpDF1,on=['Year','FirmID'],how='left')
+
+    tmpDF2 = tmpDF1.drop_duplicates()
+    Dataset3 = pd.merge(Dataset3,tmpDF2,on=['Year','FirmID'],how='left')
+    
+    
 #cap outliers - nans
+import seaborn as sns
+import pandas as pd
+import os
+InputColumn = 'FirmLogReturn'
+InputDataframe = Dataset2
+MainDir = os.path.dirname(os.path.realpath(__file__)) #working directory
+ExportDir = MainDir + '\\Output\\Descriptives\\' 
+
+tmpDF = InputDataframe[['Year','FirmID',InputColumn]]
+tmpDF = tmpDF.dropna()
+tmpPreOutlierOverview = tmpDF.describe()
+tmpPreOutlierPlot = sns.distplot(np.array(tmpDF[InputColumn]))  # getDistribution of InputColumn
+tmpPreOutlierPlot = tmpPreOutlierPlot.get_figure() #save distribution of InputColumn
+tmpPreOutlierPlot.savefig(ExportDir + InputColumn + '_PreOutlierDistribution.png')
+minValue = tmpPreOutlierOverview[InputColumn]['mean'] - (2*tmpPreOutlierOverview[InputColumn]['std']) #handle outlier minimum
+maxValue = tmpPreOutlierOverview[InputColumn]['mean'] + (2*tmpPreOutlierOverview[InputColumn]['std']) #handle outlier max
+tmpDF.loc[(tmpDF[InputColumn]<=minValue)] = minValue
+tmpDF.loc[(tmpDF[InputColumn]>=maxValue)] = maxValue
+    
+
+
 tmpFirmReturn = Dataset[['Year','FirmID','FirmLogReturn']] 
 tmpFirmReturn = tmpFirmReturn.dropna()
 OverviewFirmReturn = tmpFirmReturn.describe()
 Distribution_FirmLogReturn = sns.distplot(np.array(tmpFirmReturn['FirmLogReturn']))  # getDistribution of FirmReturn
 Distribution_FirmLogReturn = Distribution_FirmLogReturn.get_figure() #save distribution of FirmReturn
 Distribution_FirmLogReturn.savefig(ExportDir + 'Distribution_FirmLogReturn.png')             #save distribution of FirmReturn
+
+
 
 tmpBP = Dataset[['Year','FirmID','BP']] #add new tmpBP to new dataset
 tmpBP = tmpBP.dropna()
@@ -140,7 +224,7 @@ maxFirmReturn = OverviewFirmReturn['FirmLogReturn']['75%'] #handle outlier minim
 #NEXT STEPS: CREATE A FUNCTION FOR CREATING DESCRIBES AND HANDLE OUTLIERS
 
 
-"""
+
 
 #notes
 df2[cols] = df2[cols].replace({'0':np.nan, 0:np.nan}
