@@ -25,6 +25,9 @@
             20190501:
                 - Finished outliers - and export thereof - next add multiple years. Found positive (low R2 Annual LogReturn and BBBEE score!)
                 - Rerank BBBEE to adjust for missing data
+            20190502:
+                - Cleaned code
+                - Started methodology for return on differnt time fram
 """
 
 ##START SCRIPT
@@ -66,36 +69,74 @@ BBBEEMonth = 4 #define month where BBBEE is released - April is value from van d
 BBBEELag = 4 #define months Lag from BBBEE release Month - you can adjust this value to check when market reacts
 MonthYearEnd = BBBEEMonth + BBBEELag #define month for year end to calculate
 
+# Create Dataset0 rawest data, grouped by year
 StagingDates.loc[(StagingDates['Month'] == BBBEEMonth) & (StagingDates['MonthEndDummy'] == 1),'BBBEEReleaseDateDummy'] = StagingDates.loc[(StagingDates['Month'] == BBBEEMonth) & (StagingDates['MonthEndDummy'] == 1),'Year'] #put year in BBBEEdummy to identify from where BBBEE scores run
 StagingDates.loc[(StagingDates['Month'] == MonthYearEnd) & (StagingDates['MonthEndDummy'] == 1),'ReturnYearEndDummy'] = StagingDates.loc[(StagingDates['Month'] == MonthYearEnd) & (StagingDates['MonthEndDummy'] == 1),'Year'] #put year in BBBEEdummy to identify from where Return year end run
 tmpYear = StagingDates[['DateID','ReturnYearEndDummy']]
 tmpYear.columns = ['DateID','Year'] 
 StagingDS = pd.merge(StagingDS,pd.DataFrame(tmpYear),on='DateID',how='left') #create column with ReturnYearEndDummy to merge with StagingBBBEE
-df = StagingDS.loc[StagingDS['Year']!=0] #this will return more rows than StagingBBBEE because StagingBBBEE only capture sec year combination for which there is a BBBEE score df captures the sec even when there is no BBBEE score
-df = pd.merge(df,StagingBBBEE,on=['Year','FirmID'], how='left')
+Dataset0 = StagingDS.loc[StagingDS['Year']!=0] #this will return more rows than StagingBBBEE because StagingBBBEE only capture sec year combination for which there is a BBBEE score Dataset0 captures the sec even when there is no BBBEE score
+Dataset0 = pd.merge(Dataset0,StagingBBBEE,on=['Year','FirmID'], how='left')
 
-ObsVariableYear = df.groupby('Year').count() #Check number of firms with BBBEE score/without BBBEE score per year
-ObsSectorYearCount = df.pivot_table(['BBBEE_Rank','Price'], index='Year', columns='DS_SECTORID', aggfunc='count') #Check number of firms per sector per year - compare with JSE All share Index - Price as proxy for all observations
+ObsVariableYear = Dataset0.groupby('Year').count() #Check number of firms with BBBEE score/without BBBEE score per year
+ObsSectorYearCount = Dataset0.pivot_table(['BBBEE_Rank','Price'], index='Year', columns='DS_SECTORID', aggfunc='count') #Check number of firms per sector per year - compare with JSE All share Index - Price as proxy for all observations
 ObsVariableYear.to_excel(ExportDir + 'ObsVariableYear.xlsx', sheet_name='Input')
 ObsSectorYearCount.to_excel(ExportDir + 'ObsSectorYearCount.xlsx', sheet_name='Input') #work in excel to create %percentages
 
-# Calculate Yearly return and market premium
-y = df.pivot_table('PriceLogReturnCum', index='Year', columns='FirmID')
+# Create Dataset1 which has returns, market premium and riskfree rate starting from BBBEEStartYear
+BBBEEStartYear = 2004
+Dataset1 = Dataset0.loc[(Dataset0['Year']>=(BBBEEStartYear-1))]
+PriceLogReturnMatrix = Dataset1.pivot_table('PriceLogReturnCum', index='Year', columns='FirmID')
+tmpYear = pd.DataFrame(PriceLogReturnMatrix.index.get_level_values(0))
+tmpYear['YearIndex'] = tmpYear.index.get_level_values(0)
+MarketReturn = tmpYear
+RiskFreeProxy = 'SA10YR'
+RiskFreeReturn = Dataset1[['Year',RiskFreeProxy]]
+RiskFreeReturn = RiskFreeReturn.drop_duplicates()
+RiskFreeReturn[RiskFreeProxy] = RiskFreeReturn[RiskFreeProxy]/100
+RiskFreeReturn = RiskFreeReturn.reset_index(drop=True)
+RiskFreeReturn['RFR_Compound'] = (1+RiskFreeReturn[RiskFreeProxy]).cumprod() -1
+
+tmpReturnHorizonYears = 3
+
+#calc
+tmpDF = PriceLogReturnMatrix
+tmpDF = tmpDF.fillna(0) #replace nan with 0 to be able to calculate yearly return
+tmpDF1 = pd.DataFrame(np.array((1+tmpDF)/(1+ tmpDF.shift(tmpReturnHorizonYears))-1)) #calculate forward looking return    
+tmpDF2 = Functions.StackDFDS_simple(tmpDF1,str('PriceLogReturn_YR'+str(tmpReturnHorizonYears)))
+tmpDF2.columns = [str('PriceLogReturn_YR'+str(tmpReturnHorizonYears)),'FirmID','YearIndex']
+tmpDF2 = pd.merge(tmpDF2,tmpYear,on='YearIndex',how='left')
+Dataset1 = pd.merge(Dataset1,tmpDF2,on=['Year','FirmID'],how='left')
+
+MarketReturn['MarketReturn_YR'+str(tmpReturnHorizonYears)] = np.nanmean(np.array(tmpDF1), axis=1)
+#STOPPED HERE
+RiskFreeReturn['RiskFreeReturn_YR'+str(tmpReturnHorizonYears)] = pd.DataFrame(np.array((1+RiskFreeReturn['RFR_Compound'])/(1+ RiskFreeReturn['RFR_Compound'].shift(tmpReturnHorizonYears))-1))
+
+
+
+
+
+
+"""
+
+tmpMarketReturn['MarketReturn_YR'+str(tmpReturnHorizonYears)] = np.nanmean(np.array(tmpDF1), axis=1)
+
+
 y = y.fillna(0) #replace nan with 0 to be able to calculate yearly return
+
 YearlyLogReturn = pd.DataFrame(np.array((1+y)/(1+ y.shift(1))-1)) #calculate yearly return
 MarketLogReturn = np.nanmean(np.array(YearlyLogReturn), axis=1) #market return is the average return of all observations
 YearlyLogReturn[YearlyLogReturn == 0] = float('nan')
 FirmLogReturn = pd.DataFrame(YearlyLogReturn.stack())
 FirmLogReturn.columns = ['FirmLogReturn']
-FirmLogReturn['dfIndex'] = FirmLogReturn.index.get_level_values(0)
+FirmLogReturn['Dataset0Index'] = FirmLogReturn.index.get_level_values(0)
 FirmLogReturn['FirmID'] = FirmLogReturn.index.get_level_values(1)
 y = y.reset_index() #get year as column
-y['dfIndex'] = y.index.get_level_values(0) #get row id as column
-tmpYear = y[['Year','dfIndex']] # established mapping year and row id
-FirmLogReturn = pd.merge(FirmLogReturn,tmpYear,on='dfIndex',how='left')
-df = pd.merge(df,FirmLogReturn,on=['Year','FirmID'],how='left')
+y['Dataset0Index'] = y.index.get_level_values(0) #get row id as column
+tmpYear = y[['Year','Dataset0Index']] # established mapping year and row id
 
-RiskFreeReturn = df[['Year','SA10YR']]
+FirmLogReturn = pd.merge(FirmLogReturn,tmpYear,on='Dataset0Index',how='left')
+RiskFreeReturn = Dataset0[['Year','SA10YR']]
 RiskFreeReturn = RiskFreeReturn.drop_duplicates()
 RiskFreeReturn['SA10YR'] = RiskFreeReturn['SA10YR']/100
 RiskFreeReturn.columns = ['Year','RiskFreeReturn']
@@ -109,28 +150,27 @@ MarketLogReturn = MarketLogReturn.reset_index(drop=True)
 MarketLogReturn['Year'] = tmpYear['Year']
 MarketLogReturn.columns = ['MarketLogReturn','Year']
 
-BBBEEStartYear = 2004
-Dataset = df[['Year','FirmID','FirmLogReturn','BP','SIZE','BBBEE_Rank']]
-Dataset = pd.merge(Dataset, MarketPremium, on='Year',how='left')
-Dataset = pd.merge(Dataset, RiskFreeReturn, on='Year',how='left')
-Dataset = Dataset.loc[(Dataset['Year']>=BBBEEStartYear)]
-Dataset.to_excel(ExportDir + 'Dataset.xlsx', sheet_name='Input') 
 
-#get describe of 2nd layer dataset
-ObsSectorYearCount2 = Dataset.groupby('Year').count()
+Dataset1 = Dataset0[['Year','FirmID','FirmLogReturn','BP','SIZE','BBBEE_Rank']]
+Dataset1 = pd.merge(Dataset1,FirmLogReturn,on=['Year','FirmID'],how='left')
+Dataset1 = pd.merge(Dataset1, MarketPremium, on='Year',how='left')
+Dataset1 = pd.merge(Dataset1, RiskFreeReturn, on='Year',how='left')
+Dataset1 = Dataset1.loc[(Dataset1['Year']>=BBBEEStartYear)]
+Dataset1.to_excel(ExportDir + 'Dataset.xlsx', sheet_name='Input') 
+
+# Create Dataset2 which has BBBEE rank adjusted data
+Dataset2 = Dataset1 
+ObsSectorYearCount2 = Dataset2.groupby('Year').count()
 MinBBBEECount = round(ObsSectorYearCount2['BBBEE_Rank'].min(),-1) # find lowest number of observations BBBEE Rank rounded on nearest 10
-
-Dataset2 = Dataset 
-#adjust ranking
 tmpDataset2Years = Dataset2['Year'].unique()
 tmpCleanRank = Dataset2.groupby('Year')['BBBEE_Rank'].rank(ascending=True) #rerank BBBEE based on year
 Dataset2['BBBEE_Rank'] = tmpCleanRank
 Dataset2.loc[(Dataset2['BBBEE_Rank'] > MinBBBEECount),'BBBEE_Rank'] = float('nan')
 ObsVariableYearCount3 = Dataset2.groupby('Year').count()
 Dataset2.to_excel(ExportDir + 'Dataset2.xlsx', sheet_name='Input') 
+OverviewIncNaN = Dataset2.describe(include = [np.number]) #pre outlier overview
 
-OverviewIncNaN = Dataset.describe(include = [np.number]) #pre outlier overview
-
+# Create Dataset3 which has outlier adjusted data
 Dataset3 = Dataset2[['Year','FirmID','BBBEE_Rank','RiskFreeReturn','MarketPremium']]
 Dataset3 = Dataset3.reset_index(drop=True)
 tmpColumns = ['FirmLogReturn','BP','SIZE']
@@ -140,10 +180,9 @@ for ii in range(len(tmpColumns)):
     tmpDF1 = Functions.CapOutliers(Dataset2,inpColumn)
     Dataset3 = pd.merge(Dataset3,tmpDF1,on=['Year','FirmID'],how='left')
     
-
 Dataset3.to_excel(ExportDir + 'Dataset3.xlsx', sheet_name='Input') 
-"""
 
+##NOTES FROM HERE BELOW
 
     InputDataFrame = Dataset2
     InputColumn = inpColumn
