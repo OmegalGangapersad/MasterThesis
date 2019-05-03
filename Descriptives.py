@@ -27,12 +27,13 @@
                 - Rerank BBBEE to adjust for missing data
             20190502:
                 - Cleaned code
-                - Started methodology for return on differnt time frame
+                - Started methodology for return on different time frame
             20190503:
                 - Added Riskfree return over different time frames
                 - Started on factor returns
                 - Abstracted Factor and Year
                 - Created dummy top bottom 3iles BP, SIZE
+                - Finished return on different time frame
 """
 
 ##START SCRIPT
@@ -103,10 +104,8 @@ FactorDecile.columns = ['Factors']
 for ii in range(FactorDecile.shape[0]):    
     inpFactor = FactorDecile['Factors'][ii]
     FactorDF = pd.DataFrame(columns=['FirmID','Year',str(inpFactor+'_Decile')])
-    print(inpFactor)
     for jj in range(tmpYear.shape[0]):
         inpYear = tmpYear['Year'][jj]
-        print(inpYear)
         tmpFactorDF = Dataset1.loc[(Dataset1['Year']==inpYear),['FirmID','Year',inpFactor]]
         tmpFactorDF[str(inpFactor+'_Decile')] = pd.qcut(tmpFactorDF[inpFactor],10,labels=False)
         tmpFactorDF = tmpFactorDF[['FirmID','Year',str(inpFactor+'_Decile')]]
@@ -114,7 +113,8 @@ for ii in range(FactorDecile.shape[0]):
         del inpYear, tmpFactorDF
     Dataset1 = pd.merge(Dataset1,FactorDF,on=['FirmID','Year'],how='left')
     del inpFactor, FactorDF
-    
+
+del ii    
 BPMatrix = Dataset1.pivot_table('BP_Decile', index='Year', columns='FirmID')
 BPTopDummy = ([BPMatrix <=2])
 BPTopDummy = BPTopDummy[0]
@@ -126,7 +126,10 @@ SIZETopDummy = SIZETopDummy[0]
 SIZEBottomDummy = ([SIZEMatrix >=7])
 SIZEBottomDummy = SIZEBottomDummy[0]
 
-MarketReturn = tmpYear
+MarketReturn = tmpYear[['Year','YearIndex']]
+MarketPremium = tmpYear[['Year','YearIndex']]
+BPIndex = tmpYear[['Year','YearIndex']]
+SIZEIndex = tmpYear[['Year','YearIndex']]
 RiskFreeProxy = 'SA10YR'
 RiskFreeReturn = Dataset1[['Year',RiskFreeProxy]]
 RiskFreeReturn = RiskFreeReturn.drop_duplicates()
@@ -134,47 +137,64 @@ RiskFreeReturn[RiskFreeProxy] = RiskFreeReturn[RiskFreeProxy]/100
 RiskFreeReturn = RiskFreeReturn.reset_index(drop=True)
 RiskFreeReturn['RFR_Compound'] = (1+RiskFreeReturn[RiskFreeProxy]).cumprod() -1
 
-tmpReturnHorizonYears = 3
+InpReturnHorizonYears = pd.DataFrame([1,2,3,4,5])
+InpReturnHorizonYears.columns = ['ReturnHorizonYears']
 
-#calc
-tmpDF = PriceLogReturnMatrix
-tmpDF = tmpDF.fillna(0) #replace nan with 0 to be able to calculate yearly return
-#start loop
-if tmpReturnHorizonYears > 1:
-    tmpDF1 = pd.DataFrame(np.array((1+ tmpDF.shift(-tmpReturnHorizonYears))/(1+tmpDF)-1)) #calculate forward looking return, to calculate for BBBEE score in year 0 what was return from year 0 to year tmpReturnHorizonYears    
-    RiskFreeReturn['RiskFreeReturn_YR'+str(tmpReturnHorizonYears)] = pd.DataFrame(np.array(((1+ RiskFreeReturn['RFR_Compound'].shift(-(tmpReturnHorizonYears-1)))/(1+RiskFreeReturn['RFR_Compound']))-1)) #calculate compound riskfree return over tmpReturnHorizonYears
-    RiskFreeReturn['RiskFreeReturn_YR'+str(tmpReturnHorizonYears)] = pd.DataFrame(np.array((1+RiskFreeReturn[RiskFreeProxy])*(1+RiskFreeReturn['RiskFreeReturn_YR'+str(tmpReturnHorizonYears)])-1)) #add return on the year to have the riskfreereturn for tmpReturnHorizonYears
-else:    
-    tmpDF1 = pd.DataFrame(np.array((1+tmpDF)/(1+ tmpDF.shift(tmpReturnHorizonYears))-1))
-    RiskFreeReturn['RiskFreeReturn_YR'+str(tmpReturnHorizonYears)] = pd.DataFrame(np.array((1+RiskFreeReturn['RFR_Compound'])/(1+ RiskFreeReturn['RFR_Compound'].shift(tmpReturnHorizonYears))-1))
+for ii in range(InpReturnHorizonYears.shape[0]): #Create returns, BPIndex, SIZEIndex, RiskFreeReturn and MarketReturn
+    tmpReturnHorizonYears = InpReturnHorizonYears['ReturnHorizonYears'][ii]
+    print(tmpReturnHorizonYears)
+    tmpDF = PriceLogReturnMatrix
+    tmpDF = tmpDF.fillna(0) #replace nan with 0 to be able to calculate yearly return
+    if tmpReturnHorizonYears > 1:
+        tmpDF1 = pd.DataFrame(np.array((1+ tmpDF.shift(-tmpReturnHorizonYears))/(1+tmpDF)-1)) #calculate forward looking return, to calculate for BBBEE score in year 0 what was return from year 0 to year tmpReturnHorizonYears    
+        RiskFreeReturn['RiskFreeReturn_YR'+str(tmpReturnHorizonYears)] = pd.DataFrame(np.array(((1+ RiskFreeReturn['RFR_Compound'].shift(-(tmpReturnHorizonYears-1)))/(1+RiskFreeReturn['RFR_Compound']))-1)) #calculate compound riskfree return over tmpReturnHorizonYears
+        RiskFreeReturn['RiskFreeReturn_YR'+str(tmpReturnHorizonYears)] = pd.DataFrame(np.array((1+RiskFreeReturn[RiskFreeProxy])*(1+RiskFreeReturn['RiskFreeReturn_YR'+str(tmpReturnHorizonYears)])-1)) #add return on the year to have the riskfreereturn for tmpReturnHorizonYears
+    else:    
+        tmpDF1 = pd.DataFrame(np.array((1+tmpDF)/(1+ tmpDF.shift(tmpReturnHorizonYears))-1))
+        RiskFreeReturn['RiskFreeReturn_YR'+str(tmpReturnHorizonYears)] = pd.DataFrame(np.array((1+RiskFreeReturn['RFR_Compound'])/(1+ RiskFreeReturn['RFR_Compound'].shift(tmpReturnHorizonYears))-1))      
+    tmpDF2 = Functions.StackDFDS_simple(tmpDF1,str('PriceLogReturn_YR'+str(tmpReturnHorizonYears)))
+    tmpDF2.columns = [str('PriceLogReturn_YR'+str(tmpReturnHorizonYears)),'FirmID','YearIndex']
+    tmpDF2 = pd.merge(tmpDF2,tmpYear,on='YearIndex',how='left')
+    tmpDF2 = tmpDF2[[str('PriceLogReturn_YR'+str(tmpReturnHorizonYears)),'FirmID','Year']]
+    Dataset1 = pd.merge(Dataset1,tmpDF2,on=['Year','FirmID'],how='left')    
+    MarketReturn['MarketReturn_YR'+str(tmpReturnHorizonYears)] = np.nanmean(np.array(tmpDF1), axis=1) #calculate market return over time horizon    
+    MarketPremium['MarketPremium_YR'+str(tmpReturnHorizonYears)] = MarketReturn['MarketReturn_YR'+str(tmpReturnHorizonYears)] - RiskFreeReturn['RiskFreeReturn_YR'+str(tmpReturnHorizonYears)]
+    tmpBPTop = pd.DataFrame(np.array(BPTopDummy)*np.array(tmpDF1))
+    tmpBPTop = pd.DataFrame(np.nanmean(tmpBPTop, axis=1))
+    tmpBPBottom = pd.DataFrame(np.array(BPBottomDummy)*np.array(tmpDF1))
+    tmpBPBottom = pd.DataFrame(np.nanmean(tmpBPBottom, axis=1))    
+    BPIndex['BPIndex_YR'+str(tmpReturnHorizonYears)] = tmpBPTop - tmpBPBottom
+    tmpSIZETop = pd.DataFrame(np.array(SIZETopDummy)*np.array(tmpDF1))
+    tmpSIZETop = pd.DataFrame(np.nanmean(tmpSIZETop, axis=1))
+    tmpSIZEBottom = pd.DataFrame(np.array(SIZEBottomDummy)*np.array(tmpDF1))
+    tmpSIZEBottom = pd.DataFrame(np.nanmean(tmpSIZEBottom, axis=1))
+    SIZEIndex['SIZEIndex_YR'+str(tmpReturnHorizonYears)] = tmpSIZETop - tmpSIZEBottom
+    del tmpDF, tmpDF1, tmpDF2, tmpBPTop, tmpBPBottom, tmpSIZETop, tmpSIZEBottom
 
-
-"""   
-tmpDF2 = Functions.StackDFDS_simple(tmpDF1,str('PriceLogReturn_YR'+str(tmpReturnHorizonYears)))
-tmpDF2 = Functions.StackDFDS_simple(tmpDF1,str('PriceLogReturn_YR'+str(tmpReturnHorizonYears)))
-tmpDF2.columns = [str('PriceLogReturn_YR'+str(tmpReturnHorizonYears)),'FirmID','YearIndex']
-tmpDF2 = pd.merge(tmpDF2,tmpYear,on='YearIndex',how='left')
-Dataset1 = pd.merge(Dataset1,tmpDF2,on=['Year','FirmID'],how='left')
-
-MarketReturn['MarketReturn_YR'+str(tmpReturnHorizonYears)] = np.nanmean(np.array(tmpDF1), axis=1) #calculate market return over time horizon
-
-
-#Calculate value and size index over time horizon
-#end loop
-
+del ii
 #Adjust BBBEE Rank data
-#Select Relevant column
+
+
+
+
+
+#Add industry dummy
+    
 #Finalize Dataset1
+    
+#Run Descriptives over different time horizons - describe, scatterplots, correlation matrix
+#Run Regression over different time horizons - simple bp, size, bpIndex, sizeIndex
 
 #Adjust for outliers
 
 
-Dataset1 = Dataset1.loc[(Dataset1['Year'>-BBBEEStartYear])] #finalize Dataset1
 
 
 
 
+"""
 
+Dataset1 = Dataset1.loc[(Dataset1['Year']>-BBBEEStartYear)] #finalize Dataset1
 
 #STOPPED HERE
 RiskFreeReturn['RiskFreeReturn_YR'+str(tmpReturnHorizonYears)] = pd.DataFrame(np.array((1+RiskFreeReturn['RFR_Compound'])/(1+ RiskFreeReturn['RFR_Compound'].shift(tmpReturnHorizonYears))-1))
