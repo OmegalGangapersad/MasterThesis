@@ -31,6 +31,7 @@
             20190503:
                 - Added Riskfree return over different time frames
                 - Started on factor returns
+                - Abstracted Factor and Year
 """
 
 ##START SCRIPT
@@ -91,14 +92,45 @@ ObsSectorYearCount.to_excel(ExportDir + 'ObsSectorYearCount.xlsx', sheet_name='I
 BBBEEStartYear = 2004
 Dataset1 = Dataset0.loc[(Dataset0['Year']>=(BBBEEStartYear-1))]
 PriceLogReturnMatrix = Dataset1.pivot_table('PriceLogReturnCum', index='Year', columns='FirmID')
+tmpYear = pd.DataFrame(PriceLogReturnMatrix.index.get_level_values(0))
+tmpYear['YearIndex'] = tmpYear.index.get_level_values(0)
 #Create industry dummy variable
 
 # abstract this piece for factor and year
-inpYear = 2003
+FactorDecile = pd.DataFrame(['SIZE','BP'])
+FactorDecile.columns = ['Factors']
+for ii in range(FactorDecile.shape[0]):    
+    inpFactor = FactorDecile['Factors'][ii]
+    FactorDF = pd.DataFrame(columns=['FirmID','Year',str(inpFactor+'_Decile')])
+    print(inpFactor)
+    for jj in range(tmpYear.shape[0]):
+        inpYear = tmpYear['Year'][jj]
+        print(inpYear)
+        tmpFactorDF = Dataset1.loc[(Dataset1['Year']==inpYear),['FirmID','Year',inpFactor]]
+        tmpFactorDF[str(inpFactor+'_Decile')] = pd.qcut(tmpFactorDF[inpFactor],10,labels=False)
+        tmpFactorDF = tmpFactorDF[['FirmID','Year',str(inpFactor+'_Decile')]]
+        FactorDF = pd.concat([FactorDF, tmpFactorDF])    
+        del inpYear, tmpFactorDF
+    Dataset1 = pd.merge(Dataset1,FactorDF,on=['FirmID','Year'],how='left')
+    del inpFactor, FactorDF
+    
+
+"""    
+inpYear = 2004.0
+inpFactor = 'SIZE'
+FactorDF = Dataset1.loc[(Dataset1['Year']==inpYear),['FirmID','Year',inpFactor]]
+FactorDF[str(inpFactor+'_Decile')] = pd.qcut(FactorDF[inpFactor],10,labels=False)
+FactorDF = FactorDF[['FirmID','Year',str(inpFactor+'_Decile')]]
+Dataset1 = pd.merge(Dataset1,FactorDF,on=['FirmID','Year'],how='left')
+
+
 BPTemp = Dataset1.loc[(Dataset1['Year']>=inpYear),['FirmID','BP','Year']]
 BPTemp['BP_Decile'] = pd.qcut(BPTemp['BP'],10,labels=False)
 BPTemp = BPTemp[['FirmID','Year','BP_Decile']]
 Dataset1 = pd.merge(Dataset1,BPTemp,on=['FirmID','Year'],how='left')
+
+
+
 # STOPPED HERE
 BPMatrix = Dataset1.pivot_table('BP_Decile', index='Year', columns='FirmID')
 
@@ -144,7 +176,7 @@ MarketReturn['MarketReturn_YR'+str(tmpReturnHorizonYears)] = np.nanmean(np.array
 
 #Adjust for outliers
 
-"""
+
 Dataset1 = Dataset1.loc[(Dataset1['Year'>-BBBEEStartYear])] #finalize Dataset1
 
 
