@@ -22,6 +22,8 @@
                    - Added code in comment to create sector dummy matrix
                20190501:
                    - Created outlier function
+               20190502:
+                   - Created DescribeExNan function
                    
 """ 
 
@@ -146,6 +148,11 @@ def CapOutliers(InputDataFrame, InputColumn):
    
     return tmpDF
 
+def DescribeExNaN(InputDataFrame,InputColumn):
+    import pandas as pd
+    tmpDF = pd.DataFrame(InputDataFrame[InputColumn].dropna())
+    tmpDescribe = pd.DataFrame(tmpDF.describe())
+    return tmpDescribe
 
 """
 def RankingPerGroup(tmpColumns, tmpGroupOnColumnsInt, tmpSourceDataFrame): #enabled for list based grouping
