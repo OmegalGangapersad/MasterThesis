@@ -32,6 +32,7 @@
                 - Added Riskfree return over different time frames
                 - Started on factor returns
                 - Abstracted Factor and Year
+                - Created dummy top bottom 3iles BP, SIZE
 """
 
 ##START SCRIPT
@@ -96,7 +97,7 @@ tmpYear = pd.DataFrame(PriceLogReturnMatrix.index.get_level_values(0))
 tmpYear['YearIndex'] = tmpYear.index.get_level_values(0)
 #Create industry dummy variable
 
-# abstract this piece for factor and year
+# factor returns
 FactorDecile = pd.DataFrame(['SIZE','BP'])
 FactorDecile.columns = ['Factors']
 for ii in range(FactorDecile.shape[0]):    
@@ -114,28 +115,17 @@ for ii in range(FactorDecile.shape[0]):
     Dataset1 = pd.merge(Dataset1,FactorDF,on=['FirmID','Year'],how='left')
     del inpFactor, FactorDF
     
-
-"""    
-inpYear = 2004.0
-inpFactor = 'SIZE'
-FactorDF = Dataset1.loc[(Dataset1['Year']==inpYear),['FirmID','Year',inpFactor]]
-FactorDF[str(inpFactor+'_Decile')] = pd.qcut(FactorDF[inpFactor],10,labels=False)
-FactorDF = FactorDF[['FirmID','Year',str(inpFactor+'_Decile')]]
-Dataset1 = pd.merge(Dataset1,FactorDF,on=['FirmID','Year'],how='left')
-
-
-BPTemp = Dataset1.loc[(Dataset1['Year']>=inpYear),['FirmID','BP','Year']]
-BPTemp['BP_Decile'] = pd.qcut(BPTemp['BP'],10,labels=False)
-BPTemp = BPTemp[['FirmID','Year','BP_Decile']]
-Dataset1 = pd.merge(Dataset1,BPTemp,on=['FirmID','Year'],how='left')
-
-
-
-# STOPPED HERE
 BPMatrix = Dataset1.pivot_table('BP_Decile', index='Year', columns='FirmID')
+BPTopDummy = ([BPMatrix <=2])
+BPTopDummy = BPTopDummy[0]
+BPBottomDummy = ([BPMatrix >=7])
+BPBottomDummy = BPBottomDummy[0]
+SIZEMatrix = Dataset1.pivot_table('SIZE_Decile', index='Year', columns='FirmID')
+SIZETopDummy = ([SIZEMatrix <=2])
+SIZETopDummy = SIZETopDummy[0]
+SIZEBottomDummy = ([SIZEMatrix >=7])
+SIZEBottomDummy = SIZEBottomDummy[0]
 
-tmpYear = pd.DataFrame(PriceLogReturnMatrix.index.get_level_values(0))
-tmpYear['YearIndex'] = tmpYear.index.get_level_values(0)
 MarketReturn = tmpYear
 RiskFreeProxy = 'SA10YR'
 RiskFreeReturn = Dataset1[['Year',RiskFreeProxy]]
@@ -157,7 +147,9 @@ if tmpReturnHorizonYears > 1:
 else:    
     tmpDF1 = pd.DataFrame(np.array((1+tmpDF)/(1+ tmpDF.shift(tmpReturnHorizonYears))-1))
     RiskFreeReturn['RiskFreeReturn_YR'+str(tmpReturnHorizonYears)] = pd.DataFrame(np.array((1+RiskFreeReturn['RFR_Compound'])/(1+ RiskFreeReturn['RFR_Compound'].shift(tmpReturnHorizonYears))-1))
-    
+
+
+"""   
 tmpDF2 = Functions.StackDFDS_simple(tmpDF1,str('PriceLogReturn_YR'+str(tmpReturnHorizonYears)))
 tmpDF2 = Functions.StackDFDS_simple(tmpDF1,str('PriceLogReturn_YR'+str(tmpReturnHorizonYears)))
 tmpDF2.columns = [str('PriceLogReturn_YR'+str(tmpReturnHorizonYears)),'FirmID','YearIndex']
@@ -250,6 +242,9 @@ for ii in range(len(tmpColumns)):
     Dataset3 = pd.merge(Dataset3,tmpDF1,on=['Year','FirmID'],how='left')
     
 Dataset3.to_excel(ExportDir + 'Dataset3.xlsx', sheet_name='Input') 
+
+#Rerun Factor Deciles
+
 
 ##NOTES FROM HERE BELOW
 
