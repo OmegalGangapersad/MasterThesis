@@ -40,6 +40,7 @@
             20190504:
                 - Finished regressions methodology and non outlier adjusted models
                 - Flipped BBBEE Rank - so that higher BBBEE rank is better BBBEE. This improves intuition in regression and scatterplot
+                - Abstracted regression for 5 years into function Regression5YearOutput
 """
 
 ##START SCRIPT
@@ -245,6 +246,7 @@ for ii in range(InputYears.shape[0]): #see https://lectures.quantecon.org/py/ols
     tmpCorrelationMatrix = pd.DataFrame(tmpOutput.corr())
     tmpCorrelationMatrix.to_excel(ExportDir + 'CorrelationMatrix_YR' + str(InputYears[0][ii])+ '.xlsx', sheet_name='Input')
     #create scatterplots    
+    
     #Run Regression over different time horizons - simple bp, size, bpIndex, sizeIndex and     
     tmpY = tmpOutput[[str('PriceLogReturn_YR'+ str(InputYears[0][ii]))]]    
     tmpX1 = tmpOutput.drop(['Year','FirmID',str('BPIndex_YR'+ str(InputYears[0][ii])),str('SIZEIndex_YR'+ str(InputYears[0][ii])),str('PriceLogReturn_YR'+ str(InputYears[0][ii]))], axis=1)
@@ -268,20 +270,45 @@ for ii in range(InputYears.shape[0]): #see https://lectures.quantecon.org/py/ols
     
     del tmpOutput,tmpCorrelationMatrix,tmpX1,tmpX2,tmpY,tmpOLSSimpleFF,tmpOLSSimpleFFResults,tmpOLSNormalFF,tmpOLSNormalFFResults
     
-# Output Regression results Simple
+Functions.Regression5YearOutput(RegressionOutputSimple,ExportDir) # Output Regression results Simple
+Functions.Regression5YearOutput(RegressionOutputNormal,ExportDir) # Output Regression results Simple
+
+"""
+Regression5YearOutput(InpDict, ExpDir):
+
+
+    
+InpDict = RegressionOutputSimple
+tmpKeys = pd.DataFrame(list(InpDict.keys()))
+tmpModelName = tmpKeys[0][0][:-1] #get name from first key - assumes all key are the same 
+results_table = summary_col(results=[InpDict[str(tmpModelName + '5')],
+                                     InpDict[str(tmpModelName + '4')],
+                                     InpDict[str(tmpModelName + '3')],
+                                     InpDict[str(tmpModelName + '2')],
+                                     InpDict[str(tmpModelName + '1')]],
+                            float_format='%0.2f',
+                            stars = True,
+                            model_names=['1','2','3','4','5'],
+                            info_dict={'N':lambda x: "{0:d}".format(int(x.nobs)),'R2':lambda x: "{:.2f}".format(x.rsquared)})
+results_table.add_title(str('OLS Regressions - ' +  tmpModelName))    
+with open(ExportDir + 'OLS_Bummary_' + tmpModelName + '.txt', 'w') as fh: #Output
+    fh.write(results_table.as_text())
+
+
+
+
+
 results_table = summary_col(results=[RegressionOutputSimple['SimpleFF5'],RegressionOutputSimple['SimpleFF4'],RegressionOutputSimple['SimpleFF3'],RegressionOutputSimple['SimpleFF2'],RegressionOutputSimple['SimpleFF1']],
                             float_format='%0.2f',
                             stars = True,
                             model_names=['1','2','3','4','5'],
                             info_dict={'N':lambda x: "{0:d}".format(int(x.nobs)),'R2':lambda x: "{:.2f}".format(x.rsquared)})
 results_table.add_title('OLS Regressions - SimpleFF')                           
-print(results_table)
 with open(ExportDir + 'OLS_Summary_SimpleFF_Regr' +'.txt', 'w') as fh: #Output
     fh.write(results_table.as_text())
 with open(ExportDir + 'OLS_Summary_SimpleFF_Regr' +'.tex', 'w') as fh:
     fh.write(results_table.as_latex())
 del results_table
-
 
 # Output Regression results Normal - why no rsquared
 results_table1 = summary_col(results=[RegressionOutputNormal['NormalFF5'],RegressionOutputNormal['NormalFF4'],RegressionOutputNormal['NormalFF3'],RegressionOutputNormal['NormalFF2'],RegressionOutputNormal['NormalFF1']],
@@ -290,7 +317,6 @@ results_table1 = summary_col(results=[RegressionOutputNormal['NormalFF5'],Regres
                             model_names=['1','2','3','4','5'],
                             info_dict={'N':lambda x: "{0:d}".format(int(x.nobs)),'R2':lambda x: "{:.2f}".format(x.rsquared)})
 results_table1.add_title('OLS Regressions - NormalFF')                           
-print(results_table1)
 with open(ExportDir + 'OLS_Summary_NormalFF_Regr' +'.txt', 'w') as fh: #Output
     fh.write(results_table1.as_text())
 with open(ExportDir + 'OLS_Summary_NormalFF_Regr' +'.tex', 'w') as fh:
@@ -298,7 +324,7 @@ with open(ExportDir + 'OLS_Summary_NormalFF_Regr' +'.tex', 'w') as fh:
     
 
     
-"""
+
 res.bse
     try:
         
