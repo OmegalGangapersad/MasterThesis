@@ -35,6 +35,7 @@
                 - Created dummy top bottom 3iles BP, SIZE
                 - Finished return on different time frame
                 - Started on descriptives and scatterplot/regression/correlationmatrix per year
+                - Finished descriptives (describe) and regression per year
 """
 
 ##START SCRIPT
@@ -45,6 +46,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+import statsmodels.api as sm
 tmpScriptName = os.path.basename(__file__)
 tmpStartTimeScript = datetime.datetime.now()
 tmpScriptName = os.path.basename(__file__)
@@ -230,12 +232,24 @@ for ii in range(InputYears.shape[0]):
     tmpOutput = pd.merge(tmpOutput,RiskFreeReturn[['Year',str('RiskFreeReturn_YR'+ str(InputYears[InputYearsColumn][ii]))]],on='Year',how='left')
     tmpOutput = pd.merge(tmpOutput,PriceLogReturn[['Year','FirmID',str('PriceLogReturn_YR'+ str(InputYears[InputYearsColumn][ii]))]],on=['Year','FirmID'],how='left')
     #describe scatterplots, correlation matrix
+    tmpCorrelationMatrix = pd.DataFrame(tmpOutput.corr())
+    tmpCorrelationMatrix.to_excel(ExportDir + 'CorrelationMatrix_YR' + str(InputYears[InputYearsColumn][ii])+ '.xlsx', sheet_name='Input')
+    #create scatterplots
     
     #Run Regression over different time horizons - simple bp, size, bpIndex, sizeIndex and 
     
-
-
-
+    tmpX1 = tmpOutput.drop(['Year','FirmID','BP','SIZE',str('PriceLogReturn_YR'+ str(InputYears[InputYearsColumn][ii]))], axis=1)
+    tmpX2 = tmpOutput.drop(['Year','FirmID',str('BPIndex_YR'+ str(InputYears[InputYearsColumn][ii])),str('SIZEIndex_YR'+ str(InputYears[InputYearsColumn][ii])),str('PriceLogReturn_YR'+ str(InputYears[InputYearsColumn][ii]))], axis=1)
+    tmpY = tmpOutput[[str('PriceLogReturn_YR'+ str(InputYears[InputYearsColumn][ii]))]]    
+    tmpOLSSimpleFF = sm.OLS(tmpY,tmpX1, missing='drop')
+    tmpOLSSimpleFFResults = tmpOLSSimpleFF.fit()
+    with open(ExportDir + 'OLS_Summary_SimpleFF_YR'+ str(InputYears[InputYearsColumn][ii]) +'.csv', 'w') as fh:
+        fh.write(tmpOLSSimpleFFResults.summary().as_csv())
+    tmpOLSNormalFF = sm.OLS(tmpY,tmpX1, missing='drop')
+    tmpOLSNormalFFResults = tmpOLSNormalFF.fit()  
+    with open(ExportDir + 'OLS_Summary_NormalFF_YR' + str(InputYears[InputYearsColumn][ii]) +'.csv', 'w') as fh:
+        fh.write(tmpOLSNormalFFResults.summary().as_csv())
+    
 #Adjust for outliers
  
 
@@ -243,7 +257,7 @@ for ii in range(InputYears.shape[0]):
 
 
 """
-
+check here for table to latex https://economics.stackexchange.com/questions/11774/outputting-regressions-as-table-in-python-similar-to-outreg-in-stata
 
     Inpdef DescribeMultipleYearsFactor(InputDataFrame,InputColumnPrefix,InputYears,InputYearsColumn,InputMainDataFrame):utDataFrame = BPIndex
     InputColumnPrefix = 'BPIndex_YR'
