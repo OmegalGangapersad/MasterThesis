@@ -41,6 +41,7 @@
                 - Finished regressions methodology and non outlier adjusted models
                 - Flipped BBBEE Rank - so that higher BBBEE rank is better BBBEE. This improves intuition in regression and scatterplot
                 - Abstracted regression for 5 years into function Regression5YearOutput
+                - Created Abstracted scatterplots into PriceLogScatterplots
 """
 
 ##START SCRIPT
@@ -219,7 +220,7 @@ PriceLogReturn = PriceLogReturn.loc[(PriceLogReturn['Year']>=BBBEEStartYear)]
 Describe1 = pd.DataFrame(Dataset1['FirmID'].describe())
 Describe1 = Functions.DescribeExNaN(Dataset1,'BP',Describe1)
 Describe1 = Functions.DescribeExNaN(Dataset1,'SIZE',Describe1)
-Describe1 = pd.DataFrame(Functions.DescribeMultipleYearsFactor(BPIndex,'BPIndex_YR',InpReturnHorizonYears,'ReturnHorizonYears',Describe1))
+Describe1 = pd.DataFrame(Functions.DescribeMultipleYearsFactor(BPIndex,'BPIndex_YR',InpReturnHorizonYears,'ReturnHorizonYears',Describe1)) #describes over all the InputYears for this factor
 Describe1 = pd.DataFrame(Functions.DescribeMultipleYearsFactor(SIZEIndex,'SIZEIndex_YR',InpReturnHorizonYears,'ReturnHorizonYears',Describe1))
 Describe1 = pd.DataFrame(Functions.DescribeMultipleYearsFactor(MarketPremium,'MarketPremium_YR',InpReturnHorizonYears,'ReturnHorizonYears',Describe1))
 Describe1 = pd.DataFrame(Functions.DescribeMultipleYearsFactor(MarketReturn,'MarketReturn_YR',InpReturnHorizonYears,'ReturnHorizonYears',Describe1))
@@ -237,23 +238,32 @@ RegressionOutputNormal = {}
 
 for ii in range(InputYears.shape[0]): #see https://lectures.quantecon.org/py/ols.html
     tmpOutput = pd.merge(Dataset1[['Year','FirmID','BP','SIZE','BBBEE_Rank_Clean']],BPIndex[['Year',str('BPIndex_YR'+ str(InputYears[0][ii]))]],on='Year',how='left')
+    tmpOutput['BBBEE_Rank'] = tmpOutput['BBBEE_Rank_Clean']
+    tmpOutput = tmpOutput.drop('BBBEE_Rank_Clean', axis=1)
     tmpOutput = pd.merge(tmpOutput,SIZEIndex[['Year',str('SIZEIndex_YR'+ str(InputYears[0][ii]))]],on='Year',how='left')
     tmpOutput = pd.merge(tmpOutput,MarketPremium[['Year',str('MarketPremium_YR'+ str(InputYears[0][ii]))]],on='Year',how='left')
     tmpOutput = pd.merge(tmpOutput,RiskFreeReturn[['Year',str('RiskFreeReturn_YR'+ str(InputYears[0][ii]))]],on='Year',how='left')
     tmpOutput = pd.merge(tmpOutput,PriceLogReturn[['Year','FirmID',str('PriceLogReturn_YR'+ str(InputYears[0][ii]))]],on=['Year','FirmID'],how='left')
     tmpOutput = pd.merge(tmpOutput,SectorDummy,on=['Year','FirmID'],how='left')
+    
     #correlation matrix
     tmpCorrelationMatrix = pd.DataFrame(tmpOutput.corr())
     tmpCorrelationMatrix.to_excel(ExportDir + 'CorrelationMatrix_YR' + str(InputYears[0][ii])+ '.xlsx', sheet_name='Input')
-    #create scatterplots    
-    
-    #Run Regression over different time horizons - simple bp, size, bpIndex, sizeIndex and     
+   
+    #create scatterplots 
+    tmpXColumns = ['BP','SIZE','BBBEE_Rank',str('BPIndex_YR'+ str(InputYears[0][ii])),str('SIZEIndex_YR'+ str(InputYears[0][ii])),str('MarketPremium_YR'+ str(InputYears[0][ii])),str('RiskFreeReturn_YR'+ str(InputYears[0][ii]))]
+    tmpYColumn = str('PriceLogReturn_YR'+ str(InputYears[0][ii]))    
+    Functions.PriceLogScatterplots(tmpXColumns,tmpYColumn,tmpOutput,ExportDir)    
+    del tmpXColumns,tmpYColumn
+                   
+    #Define Y and X and standardize X column names
     tmpY = tmpOutput[[str('PriceLogReturn_YR'+ str(InputYears[0][ii]))]]    
     tmpX1 = tmpOutput.drop(['Year','FirmID',str('BPIndex_YR'+ str(InputYears[0][ii])),str('SIZEIndex_YR'+ str(InputYears[0][ii])),str('PriceLogReturn_YR'+ str(InputYears[0][ii]))], axis=1)
     tmpX1 = Functions.OLSStandardizeXCol(tmpX1)    
     tmpX2 = tmpOutput.drop(['Year','FirmID','BP','SIZE',str('PriceLogReturn_YR'+ str(InputYears[0][ii]))], axis=1)
     tmpX2 = Functions.OLSStandardizeXCol(tmpX2)    
     
+    #Run Regression over different time horizons - simple bp, size, bpIndex, sizeIndex and     
     tmpOLSSimpleFF = sm.OLS(tmpY,tmpX1, missing='drop')
     tmpOLSSimpleFFResults = tmpOLSSimpleFF.fit()
     tmpKey = str('SimpleFF' + str(InputYears[0][ii]))   # https://stackoverflow.com/questions/5036700/how-can-you-dynamically-create-variables-via-a-while-loop 
@@ -267,13 +277,27 @@ for ii in range(InputYears.shape[0]): #see https://lectures.quantecon.org/py/ols
     tmpValue1 = tmpOLSNormalFFResults    
     RegressionOutputNormal[tmpKey1] = tmpValue1  
     del tmpKey1, tmpValue1
-    
+            
     del tmpOutput,tmpCorrelationMatrix,tmpX1,tmpX2,tmpY,tmpOLSSimpleFF,tmpOLSSimpleFFResults,tmpOLSNormalFF,tmpOLSNormalFFResults
     
 Functions.Regression5YearOutput(RegressionOutputSimple,ExportDir) # Output Regression results Simple
 Functions.Regression5YearOutput(RegressionOutputNormal,ExportDir) # Output Regression results Simple
 
 """
+
+
+    
+    for xx in range(pd.DataFrame(inpXColumns).shape[0]):
+        tmpXColumn = inpXColumns[xx]
+        fig = plt.figure()
+        plt.rc('font', family='serif')
+        plt.scatter(inpDataFrame[tmpXColumn],inpDataFrame[inpYColumn],color='k')
+        plt.xlabel(tmpXColumn)
+        plt.ylabel(inpYColumn)
+        plt.xlim(0, 60)
+        plt.show()
+        fig.savefig(ExportDir + 'ScatterPlot_'+ inpYColumn +  '_' + tmpXColumn + '.png')    
+        
 Regression5YearOutput(InpDict, ExpDir):
 
 
