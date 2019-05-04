@@ -148,11 +148,20 @@ def CapOutliers(InputDataFrame, InputColumn):
    
     return tmpDF
 
-def DescribeExNaN(InputDataFrame,InputColumn):
+def DescribeExNaN(InputDataFrame,InputColumn,InputMainDataFrame):
     import pandas as pd
     tmpDF = pd.DataFrame(InputDataFrame[InputColumn].dropna())
     tmpDescribe = pd.DataFrame(tmpDF.describe())
-    return tmpDescribe
+    tmpOutput = pd.merge(InputMainDataFrame,tmpDescribe,how='left',left_index=True, right_index=True)
+    
+    return tmpOutput
+
+def DescribeMultipleYearsFactor(InputDataFrame,InputColumnPrefix,InputYears,InputYearsColumn,InputMainDataFrame):
+    for ii in range(InputYears.shape[0]):
+        tmpColumnName = str(InputColumnPrefix+str(InputYears[InputYearsColumn][ii]))
+        InputMainDataFrame = DescribeExNaN(InputDataFrame,tmpColumnName,InputMainDataFrame)
+    return InputMainDataFrame
+    
 
 """
 def RankingPerGroup(tmpColumns, tmpGroupOnColumnsInt, tmpSourceDataFrame): #enabled for list based grouping
