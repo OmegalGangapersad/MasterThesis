@@ -42,6 +42,7 @@
                 - Flipped BBBEE Rank - so that higher BBBEE rank is better BBBEE. This improves intuition in regression and scatterplot
                 - Abstracted regression for 5 years into function Regression5YearOutput
                 - Created Abstracted scatterplots into PriceLogScatterplots
+                - Started with outlier adjusted analysis
 """
 
 ##START SCRIPT
@@ -118,6 +119,7 @@ for ii in range(FactorDecile.shape[0]):
         inpYear = tmpYear['Year'][jj]
         tmpFactorDF = Dataset1.loc[(Dataset1['Year']==inpYear),['FirmID','Year',inpFactor]]
         tmpFactorDF[str(inpFactor+'_Decile')] = pd.qcut(tmpFactorDF[inpFactor],10,labels=False)
+        tmpFactorDF = tmpFactorDF.drop_duplicates()
         tmpFactorDF = tmpFactorDF[['FirmID','Year',str(inpFactor+'_Decile')]]
         FactorDF = pd.concat([FactorDF, tmpFactorDF])    
         del inpYear, tmpFactorDF
@@ -202,7 +204,7 @@ for ii in range(tmpSECTORID.shape[0]): #create a dummy variable name for all DS_
     SectorDummy[str(tmpColumnName)] = np.zeros(shape=(SectorDummy.shape[0],1))
     SectorDummy.loc[(SectorDummy['DS_SECTORID'] == tmpSECTORID['DS_SECTORID'][ii]),str(tmpColumnName)] = 1
 
-del tmpSECTORID
+del tmpSECTORID,ii
 
 SectorDummy = SectorDummy.drop(['DS_SECTORID'], axis=1)
 
@@ -279,11 +281,104 @@ for ii in range(InputYears.shape[0]): #see https://lectures.quantecon.org/py/ols
     del tmpKey1, tmpValue1
             
     del tmpOutput,tmpCorrelationMatrix,tmpX1,tmpX2,tmpY,tmpOLSSimpleFF,tmpOLSSimpleFFResults,tmpOLSNormalFF,tmpOLSNormalFFResults
-    
+ 
+del ii
 Functions.Regression5YearOutput(RegressionOutputSimple,ExportDir) # Output Regression results Simple
 Functions.Regression5YearOutput(RegressionOutputNormal,ExportDir) # Output Regression results Simple
 
-"""
+
+#Adjust for outliers - Dataset2 - RiskFreeReturn is not adjusted 
+Dataset2 = Dataset1 #Already contains clean BBBEE
+tmpYear2 = tmpYear.loc[(tmpYear['Year']>=BBBEEStartYear)] #ensure to only take years for which BBBBEE data is available
+tmpYear2 = tmpYear2.reset_index(drop=True)
+InpReturnHorizonYears = pd.DataFrame([1,2,3,4,5])
+InpReturnHorizonYears.columns = ['ReturnHorizonYears']
+
+#Adjust BP, SIZE
+Dataset2 = Dataset2.reset_index(drop=True)
+tmpColumns = ['BP','SIZE']
+for ii in range(len(tmpColumns)): 
+    inpColumn = str(tmpColumns[ii])
+    tmpDF1 = Functions.CapOutliers(Dataset2,inpColumn)
+    Dataset2 = Dataset2.drop([inpColumn], axis=1)
+    Dataset2 = pd.merge(Dataset2,tmpDF1,on=['Year','FirmID'],how='left')
+del tmpColumns, ii
+
+#Adjust PriceLogReturns for outliers - Create PriceLogReturn2
+PriceLogReturn2 = PriceLogReturn[['Year','FirmID']]
+tmpColumns = pd.DataFrame(PriceLogReturn.columns)
+tmpColumns = tmpColumns.loc[(tmpColumns[0] != 'Year')]
+tmpColumns = tmpColumns.loc[(tmpColumns[0] != 'FirmID')]
+tmpColumns = list(tmpColumns[0])
+for ii in range(len(tmpColumns)): 
+    inpColumn = str(tmpColumns[ii])
+    tmpDF1 = Functions.CapOutliers(PriceLogReturn,inpColumn)
+    PriceLogReturn2 = pd.merge(PriceLogReturn2,tmpDF1,on=['Year','FirmID'],how='left')
+del tmpColumns, ii
+
+#Rerun Deciles
+Dataset2 = Dataset2.drop(['SIZE_Decile','BP_Decile'], axis=1)
+
+# factor returns
+FactorDecile2 = pd.DataFrame(['SIZE','BP'])
+FactorDecile2.columns = ['Factors']
+for ii in range(FactorDecile2.shape[0]):    
+    inpFactor2 = FactorDecile2['Factors'][ii]
+    FactorDF2 = pd.DataFrame(columns=['FirmID','Year',str(inpFactor2+'_Decile')])
+    for jj in range(tmpYear2.shape[0]):
+        inpYear = tmpYear2['Year'][jj]
+        tmpFactorDF2 = Dataset2.loc[(Dataset2['Year']==inpYear),['FirmID','Year',inpFactor2]]
+        tmpFactorDF2 = tmpFactorDF2.drop_duplicates()
+        tmpFactorDF2[str(inpFactor2+'_Decile')] = pd.qcut(tmpFactorDF2[inpFactor2],10,labels=False)
+        tmpFactorDF2 = tmpFactorDF2[['FirmID','Year',str(inpFactor2+'_Decile')]]
+        FactorDF2 = pd.concat([FactorDF2, tmpFactorDF2])    
+        del inpYear, tmpFactorDF2
+    Dataset2 = pd.merge(Dataset2,FactorDF2,on=['FirmID','Year'],how='left')
+    del inpFactor2, FactorDF2
+
+del ii,jj 
+BPMatrix2 = Dataset2.pivot_table('BP_Decile', index='Year', columns='FirmID')
+BPTopDummy2 = ([BPMatrix2 <=2])
+BPTopDummy2 = BPTopDummy2[0]
+BPBottomDummy2 = ([BPMatrix2 >=7])
+BPBottomDummy2 = BPBottomDummy2[0]
+SIZEMatrix2 = Dataset2.pivot_table('SIZE_Decile', index='Year', columns='FirmID')
+SIZETopDummy2 = ([SIZEMatrix2 <=2])
+SIZETopDummy2 = SIZETopDummy2[0]
+SIZEBottomDummy2 = ([SIZEMatrix2 >=7])
+SIZEBottomDummy2 = SIZEBottomDummy2[0]
+
+#Rerun MarketReturn, MarketPremium, BPIndex, SIZEIndex
+MarketReturn2 = tmpYear2[['Year','YearIndex']]
+MarketPremium2 = tmpYear2[['Year','YearIndex']]
+BPIndex2 = tmpYear2[['Year','YearIndex']]
+SIZEIndex2 = tmpYear2[['Year','YearIndex']]
+BPTopDummy2 = BPTopDummy[BPTopDummy.index>=BBBEEStartYear] #source: https://stackoverflow.com/questions/24088795/python-pandas-select-index-where-index-is-larger-than-x
+BPBottomDummy2 = BPBottomDummy[BPBottomDummy.index>=BBBEEStartYear] 
+
+for ii in range(InpReturnHorizonYears.shape[0]):
+    tmpReturnHorizonYears = InpReturnHorizonYears['ReturnHorizonYears'][ii]
+    tmpPriceLogReturnColumn = str('PriceLogReturn_YR' + str(tmpReturnHorizonYears))
+    tmpDF = PriceLogReturn2.pivot_table(tmpPriceLogReturnColumn, index='Year', columns='FirmID')
+    MarketReturn2['MarketReturn_YR'+str(tmpReturnHorizonYears)] = np.nanmean(np.array(tmpDF), axis=1) #calculate market return over time horizon    
+    MarketPremium2['MarketPremium_YR'+str(tmpReturnHorizonYears)] = MarketReturn2['MarketReturn_YR'+str(tmpReturnHorizonYears)] - RiskFreeReturn['RiskFreeReturn_YR'+str(tmpReturnHorizonYears)]
+    tmpBPTop = pd.DataFrame(np.array(BPTopDummy2)*np.array(tmpDF))
+    tmpBPTop = pd.DataFrame(np.nanmean(tmpBPTop, axis=1))
+    tmpBPBottom = pd.DataFrame(np.array(BPBottomDummy2)*np.array(tmpDF))
+    tmpBPBottom = pd.DataFrame(np.nanmean(tmpBPBottom, axis=1))    
+    BPIndex['BPIndex_YR'+str(tmpReturnHorizonYears)] = tmpBPTop - tmpBPBottom
+    tmpSIZETop = pd.DataFrame(np.array(SIZETopDummy2)*np.array(tmpDF))
+    tmpSIZETop = pd.DataFrame(np.nanmean(tmpSIZETop, axis=1))
+    tmpSIZEBottom = pd.DataFrame(np.array(SIZEBottomDummy2)*np.array(tmpDF))
+    tmpSIZEBottom = pd.DataFrame(np.nanmean(tmpSIZEBottom, axis=1))
+    SIZEIndex['SIZEIndex_YR'+str(tmpReturnHorizonYears)] = tmpSIZETop - tmpSIZEBottom
+    del tmpDF, tmpBPTop, tmpBPBottom, tmpSIZETop, tmpSIZEBottom
+#DESCRIBE
+#RUN OUTPUT
+"""  
+
+#NOTES FROM HERE
+Dataset3.to_excel(ExportDir + 'Dataset3.xlsx', sheet_name='Input') 
 
 
     
