@@ -28,8 +28,8 @@
                20190504:                
                    - Created OLSStandardizeXCol to standardize x columns for regressions
                    - Abstracted regression for 5 years into function Regression5YearOutput
-                   - Created Abstracted scatterplots into PriceLogScatterplots
-                   
+                   - Created Abstracted scatterplots into PriceLogScatterplots                  
+                   - Cleaned code
 """ 
 
 def LogScript(ScriptName, Time, LogComment):
@@ -187,27 +187,27 @@ def OLSStandardizeXCol(InputDataFrame):
     InputDataFrame.columns = tmpXColumns[0]
     return InputDataFrame
     
-def Regression5YearOutput(InpDict, ExpDir):
+def Regression5YearOutput(InpDict, ExpDir,InpTitlePrefix):
     import pandas as pd  
     from statsmodels.iolib.summary2 import summary_col      
     tmpKeys = pd.DataFrame(list(InpDict.keys()))
     tmpModelName = tmpKeys[0][0][:-1] #get name from first key - assumes all key are the same 
-    results_table = summary_col(results=[InpDict[str(tmpModelName + '5')],
-                                         InpDict[str(tmpModelName + '4')],
-                                         InpDict[str(tmpModelName + '3')],
+    results_table = summary_col(results=[InpDict[str(tmpModelName + '1')],
                                          InpDict[str(tmpModelName + '2')],
-                                         InpDict[str(tmpModelName + '1')]],
-                                float_format='%0.2f',
+                                         InpDict[str(tmpModelName + '3')],
+                                         InpDict[str(tmpModelName + '4')],
+                                         InpDict[str(tmpModelName + '5')]],
+                                float_format='%0.4f',
                                 stars = True,
                                 model_names=['1','2','3','4','5'],
                                 info_dict={'N':lambda x: "{0:d}".format(int(x.nobs)),'R2':lambda x: "{:.2f}".format(x.rsquared)})
     results_table.add_title(str('OLS Regressions - ' +  tmpModelName))    
-    with open(ExpDir + 'OLS_Summary_' + tmpModelName + '.txt', 'w') as fh: #Output
+    with open(ExpDir + InpTitlePrefix + tmpModelName + '.txt', 'w') as fh: #Output
         fh.write(results_table.as_text())
 
 def PriceLogScatterplots(inpXColumns,inpYColumn,inpDataFrame,ExpDir):
     import pandas as pd
-    import matplotlib.pyplot as plt    
+    import matplotlib.pyplot as plt
     for xx in range(pd.DataFrame(inpXColumns).shape[0]):
         tmpXColumn = inpXColumns[xx]
         fig = plt.figure()
@@ -215,105 +215,5 @@ def PriceLogScatterplots(inpXColumns,inpYColumn,inpDataFrame,ExpDir):
         plt.scatter(inpDataFrame[tmpXColumn],inpDataFrame[inpYColumn],color='k')
         plt.xlabel(tmpXColumn)
         plt.ylabel(inpYColumn)
-        plt.show()
-        fig.savefig(ExpDir + 'ScatterPlot_'+ inpYColumn +  '_' + tmpXColumn + '.png')    
-   
-
-
-"""
-def RankingPerGroup(tmpColumns, tmpGroupOnColumnsInt, tmpSourceDataFrame): #enabled for list based grouping
-    import pandas as pd
-    import numpy as np    
-    tmpGrouping = tmpColumnGroup
-    tmpLoopGroup = ColumnGroup.iloc[0] 
-
-#start function   
-#libs
-import pandas as pd
-import numpy as np    
-
-#INPUT
-tmpColumns = ['Year','BBBEE_Rank','LogPriceReturn','BVPS','MV']   #input
-tmpGroupOnColumnsInt = [0] 
-tmpSourceDataFrame = FinalData.copy() #input
-
-#CALCULATE
-#check shape tmpGroupOnColumnsInt
-if np.array(tmpGroupOnColumnsInt).shape[0] == 1:
-    print('Sup')
-    tmpGroupOnColumnsName = pd.DataFrame(tmpColumns).iloc[tmpGroupOnColumnsInt,0]    
-else:
-    print('Suuuup')
-    tmpGroupOnColumnsName = tmpColumns[tmpGroupOnColumnsInt] #figure out how to make this work with only one value        
-tmpColumns = pd.Series(tmpColumns)
-tmpGroupOnColumnsName = pd.Series(tmpGroupOnColumnsName)
-tmpBoolGroup =  tmpColumns.isin(tmpGroupOnColumnsName)
-tmpColumnsToBeGrouped = tmpColumns[tmpBoolGroup == False]
-
-#create output structure
-tmpOutputColumns = list(tmpGroupOnColumnsName)
-for indexInt, item in enumerate(tmpColumnsToBeGrouped):
-    itemOutput = item + '_Rank'
-    tmpOutputColumns.append(itemOutput)    
-tmpOutputDF = pd.DataFrame(np.nan, index=[0], columns= tmpOutputColumns) #create an empty dataframe to initiate
-
-#Loop through tmpLoopGroup1
-tmpLoopGroup1Name = str(tmpGroupOnColumnsName[0]) #define loop group 1 column name
-TmpSeriesGroup1UniqueValues= pd.DataFrame(tmpSourceDataFrame[tmpLoopGroup1Name].unique()) #get unique values loop group 1 to loop through
-
-# actual start tmploopGroup1
-Loop = 0 #remove this, just to make it work for now
-tmpLoopGroup1Item = TmpSeriesGroup1UniqueValues.iloc[Loop,0]
-TmpDF1 = tmpSourceDataFrame[tmpSourceDataFrame[str(tmpLoopGroup1Name)]==tmpLoopGroup1Item][tmpColumns] # get dataframe where condition -- remember this way and retrospect it in stagingdata etc
-
-
-
-
-
-    tmpYear = UniqueYears['Year'][0]
-    df = FinalData.loc[FinalData['Year'] == int(tmpYear), ['Year','BBBEE_Rank','LogPriceReturn','BVPS','MV',]]
-    df['LogPriceReturn_Rank'] = df['LogPriceReturn'].rank() 
-    df['BVPS_Rank'] = df['BVPS'].rank() 
-    df['MV_Rank'] = df['MV'].rank() 
-    df2 = df[['Year','LogPriceReturn_Rank','BBBEE_Rank','BVPS_Rank','MV_Rank']].copy()
-    
-CODE TO CREATE DUMMY VARIABLE SECTORS
-
-for ii in range(tmpSECTORID.shape[0]): #create a dummy variable name for all DS_SECTORS
-    tmpColumnName = str('DSDUMMY_' + str(tmpSECTORID['DS_SECTORNAME'][ii]))
-    tmpSECTORDummyMat = pd.DataFrame(np.zeros(shape=(StagingSECTOR.shape[0],1)))
-    tmpSECTORDummyMat[StagingSECTOR['DS_SECTORNAME'] == str(tmpSECTORID['DS_SECTORNAME'][ii])] = 1
-    StagingSECTOR[str(tmpColumnName)] = tmpSECTORDummyMat
-
-#UNCOMMENT BELOW TO ADD ICB SECTOR
-tmpSECTORID_ICB =  StagingSECTOR[['ICB_SECTORNAME']]   
-tmpSECTORID_ICB = tmpSECTORID_ICB.drop_duplicates()
-tmpSECTORID_ICB = tmpSECTORID_ICB.reset_index(drop=True)
-for ii in range(tmpSECTORID_ICB.shape[0]): #create a dummy variable name for all DS_SECTORS
-    tmpColumnName = str('ICBDUMMY_' + str(tmpSECTORID_ICB['ICB_SECTORNAME'][ii]))
-    tmpSECTORDummyMat = pd.DataFrame(np.zeros(shape=(StagingSECTOR.shape[0],1)))
-    tmpSECTORDummyMat[StagingSECTOR['ICB_SECTORNAME'] == str(tmpSECTORID_ICB['ICB_SECTORNAME'][ii])] = 1
-    StagingSECTOR[str(tmpColumnName)] = tmpSECTORDummyMat
-
-
-
-#CREATE STAGINGSECTOR DS
-tmpSECTORMat = StagingFirmID.drop(['Raw_FirmID','RIC','ISIN','CompanyName','DS_SECTORNAME','ICB_SECTORNAME','ICB_SECTORID'], axis=1) #create this tmpMat to join to StagingDS
-StagingSECTORDS = pd.DataFrame({
-                        'DateID':np.array(StackPrice['DateID']),
-                        'FirmID':np.array(StackPrice['FirmID'])                        
-                        })
-StagingSECTORDS =pd.merge(StagingSECTORDS,tmpSECTORMat,on='FirmID',how='left')
-
-#CREATE STAGINGSECTOR ICB
-tmpSECTORMat = StagingFirmID.drop(['Raw_FirmID','RIC','ISIN','CompanyName','DS_SECTORNAME','ICB_SECTORNAME','DS_SECTORID'], axis=1) #create this tmpMat to join to StagingDS
-StagingSECTORDS = pd.DataFrame({
-                        'DateID':np.array(StackPrice['DateID']),
-                        'FirmID':np.array(StackPrice['FirmID'])                        
-                        })
-StagingSECTORDS =pd.merge(StagingSECTORDS,tmpSECTORMat,on='FirmID',how='left')
-
-
-StagingDS = pd.merge(StagingDS,tmpSECTORMat,on='FirmID',how='left')
-    
-"""
+        #plt.show()
+        fig.savefig(ExpDir + 'ScatterPlot_'+ inpYColumn +  '_' + tmpXColumn + '.png')          
