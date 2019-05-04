@@ -24,6 +24,7 @@
                    - Created outlier function
                20190502:
                    - Created DescribeExNan function
+                   - Created DescribeExNan for multiple years function called DescribeMultipleYearsFactor
                    
 """ 
 
@@ -161,6 +162,26 @@ def DescribeMultipleYearsFactor(InputDataFrame,InputColumnPrefix,InputYears,Inpu
         tmpColumnName = str(InputColumnPrefix+str(InputYears[InputYearsColumn][ii]))
         InputMainDataFrame = DescribeExNaN(InputDataFrame,tmpColumnName,InputMainDataFrame)
     return InputMainDataFrame
+
+def OLSStandardizeXCol(InputDataFrame):
+    import pandas as pd
+    tmpXColumns  = pd.DataFrame(InputDataFrame.columns)
+    for jj in range(tmpXColumns.shape[0]):
+        tmpColumnName = str(tmpXColumns[0][jj])
+        if tmpColumnName.find('DSDUMMY_') == 0:
+            tmpXColumns[0][jj] = tmpColumnName[8:] #remove DSDUMMY for sector
+        if tmpColumnName.find('BP') == 0:
+            tmpXColumns[0][jj] = 'BP'
+        if tmpColumnName.find('SIZE') == 0:
+            tmpXColumns[0][jj] = 'SIZE'
+        if tmpColumnName.find('MarketPremium') == 0:
+            tmpXColumns[0][jj] = 'MarketPremium'
+        if tmpColumnName.find('RiskFreeReturn') == 0:
+                tmpXColumns[0][jj] = 'RiskFreeReturn'
+        if tmpColumnName.find('BBBEE_Rank') == 0:
+                tmpXColumns[0][jj] = 'BBBEE_Rank'
+    InputDataFrame.columns = tmpXColumns[0]
+    return InputDataFrame
     
 
 """
