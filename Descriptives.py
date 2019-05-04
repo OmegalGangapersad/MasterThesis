@@ -34,6 +34,7 @@
                 - Abstracted Factor and Year
                 - Created dummy top bottom 3iles BP, SIZE
                 - Finished return on different time frame
+                - Started on descriptives and scatterplot/regression/correlationmatrix per year
 """
 
 ##START SCRIPT
@@ -114,7 +115,7 @@ for ii in range(FactorDecile.shape[0]):
     Dataset1 = pd.merge(Dataset1,FactorDF,on=['FirmID','Year'],how='left')
     del inpFactor, FactorDF
 
-del ii    
+del ii,jj    
 BPMatrix = Dataset1.pivot_table('BP_Decile', index='Year', columns='FirmID')
 BPTopDummy = ([BPMatrix <=2])
 BPTopDummy = BPTopDummy[0]
@@ -136,6 +137,7 @@ RiskFreeReturn = RiskFreeReturn.drop_duplicates()
 RiskFreeReturn[RiskFreeProxy] = RiskFreeReturn[RiskFreeProxy]/100
 RiskFreeReturn = RiskFreeReturn.reset_index(drop=True)
 RiskFreeReturn['RFR_Compound'] = (1+RiskFreeReturn[RiskFreeProxy]).cumprod() -1
+PriceLogReturn = Dataset1[['Year','FirmID']]
 
 InpReturnHorizonYears = pd.DataFrame([1,2,3,4,5])
 InpReturnHorizonYears.columns = ['ReturnHorizonYears']
@@ -156,7 +158,7 @@ for ii in range(InpReturnHorizonYears.shape[0]): #Create returns, BPIndex, SIZEI
     tmpDF2.columns = [str('PriceLogReturn_YR'+str(tmpReturnHorizonYears)),'FirmID','YearIndex']
     tmpDF2 = pd.merge(tmpDF2,tmpYear,on='YearIndex',how='left')
     tmpDF2 = tmpDF2[[str('PriceLogReturn_YR'+str(tmpReturnHorizonYears)),'FirmID','Year']]
-    Dataset1 = pd.merge(Dataset1,tmpDF2,on=['Year','FirmID'],how='left')    
+    PriceLogReturn = pd.merge(PriceLogReturn,tmpDF2,on=['Year','FirmID'],how='left')    
     MarketReturn['MarketReturn_YR'+str(tmpReturnHorizonYears)] = np.nanmean(np.array(tmpDF1), axis=1) #calculate market return over time horizon    
     MarketPremium['MarketPremium_YR'+str(tmpReturnHorizonYears)] = MarketReturn['MarketReturn_YR'+str(tmpReturnHorizonYears)] - RiskFreeReturn['RiskFreeReturn_YR'+str(tmpReturnHorizonYears)]
     tmpBPTop = pd.DataFrame(np.array(BPTopDummy)*np.array(tmpDF1))
@@ -173,26 +175,118 @@ for ii in range(InpReturnHorizonYears.shape[0]): #Create returns, BPIndex, SIZEI
 
 del ii
 #Adjust BBBEE Rank data
-
-
-
-
+YearBBBEECount= Dataset1[['BBBEE_Rank','Year']].groupby('Year').count()
+YearBBBEECount.loc[(YearBBBEECount['BBBEE_Rank']==0)] = float('nan')
+MinBBBEECount = round(YearBBBEECount['BBBEE_Rank'].min(),-1) # find lowest number of observations BBBEE Rank rounded on nearest 10
+tmpCleanRank = Dataset1.groupby('Year')['BBBEE_Rank'].rank(ascending=True) #rerank BBBEE based on year
+Dataset1['BBBEE_Rank_Clean'] = tmpCleanRank
+Dataset1.loc[(Dataset1['BBBEE_Rank_Clean'] > MinBBBEECount),'BBBEE_Rank_Clean'] = float('nan')
+del tmpCleanRank
 
 #Add industry dummy
-    
-#Finalize Dataset1
-    
+tmpSECTORID = StagingFirm[['DS_SECTORNAME','DS_SECTORID']].drop_duplicates()
+tmpSECTORID = tmpSECTORID.reset_index(drop=True)
+SectorDummy = Dataset1[['Year','FirmID','DS_SECTORID']]
+for ii in range(tmpSECTORID.shape[0]): #create a dummy variable name for all DS_SECTORS
+    tmpColumnName = str('DSDUMMY_' + str(tmpSECTORID['DS_SECTORNAME'][ii]))
+    SectorDummy[str(tmpColumnName)] = np.zeros(shape=(SectorDummy.shape[0],1))
+    SectorDummy.loc[(SectorDummy['DS_SECTORID'] == tmpSECTORID['DS_SECTORID'][ii]),str(tmpColumnName)] = 1
+
+del tmpSECTORID
+
+SectorDummy = SectorDummy.drop(['DS_SECTORID'], axis=1)
+
+#Finalize Variables
+Dataset1 = Dataset1.loc[(Dataset1['Year']>=BBBEEStartYear)] #finalize Dataset1
+SectorDummy = SectorDummy.loc[(SectorDummy['Year']>=BBBEEStartYear)] #finalize SectorDummy
+BPIndex = BPIndex.loc[(BPIndex['Year']>=BBBEEStartYear)] #finalize BPIndex
+SIZEIndex = SIZEIndex.loc[(SIZEIndex['Year']>=BBBEEStartYear)] #finalize BPIndex
+MarketPremium = MarketPremium.loc[(MarketPremium['Year']>=BBBEEStartYear)] #finalize MarketPremium
+MarketReturn = MarketReturn.loc[(MarketReturn['Year']>=BBBEEStartYear)] #finalize MarketReturn
+RiskFreeReturn = RiskFreeReturn.loc[(RiskFreeReturn['Year']>=BBBEEStartYear)] #finalize RiskFreeReturn
+PriceLogReturn = PriceLogReturn.loc[(PriceLogReturn['Year']>=BBBEEStartYear)] 
+
+#Run Descriptives over different time horizons - describe
+Describe1 = pd.DataFrame(Dataset1['FirmID'].describe())
+Describe1 = Functions.DescribeExNaN(Dataset1,'BP',Describe1)
+Describe1 = Functions.DescribeExNaN(Dataset1,'SIZE',Describe1)
+Describe1 = pd.DataFrame(Functions.DescribeMultipleYearsFactor(BPIndex,'BPIndex_YR',InpReturnHorizonYears,'ReturnHorizonYears',Describe1))
+Describe1 = pd.DataFrame(Functions.DescribeMultipleYearsFactor(SIZEIndex,'SIZEIndex_YR',InpReturnHorizonYears,'ReturnHorizonYears',Describe1))
+Describe1 = pd.DataFrame(Functions.DescribeMultipleYearsFactor(MarketPremium,'MarketPremium_YR',InpReturnHorizonYears,'ReturnHorizonYears',Describe1))
+Describe1 = pd.DataFrame(Functions.DescribeMultipleYearsFactor(MarketReturn,'MarketReturn_YR',InpReturnHorizonYears,'ReturnHorizonYears',Describe1))
+Describe1 = pd.DataFrame(Functions.DescribeMultipleYearsFactor(RiskFreeReturn,'RiskFreeReturn_YR',InpReturnHorizonYears,'ReturnHorizonYears',Describe1))
+Describe1 = pd.DataFrame(Functions.DescribeMultipleYearsFactor(PriceLogReturn,'PriceLogReturn_YR',InpReturnHorizonYears,'ReturnHorizonYears',Describe1))
+Describe1.to_excel(ExportDir + 'Descriptives.xlsx', sheet_name='Input')
+
 #Run Descriptives over different time horizons - describe, scatterplots, correlation matrix
-#Run Regression over different time horizons - simple bp, size, bpIndex, sizeIndex
+InpReturnHorizonYears = pd.DataFrame([1,2,3,4,5])
+InputYearsColumn = 'ReturnHorizonYears'
+InputYears = InpReturnHorizonYears
+OutputSet = Dataset1[['Year','FirmID','BP','SIZE','BBBEE_Rank_Clean']]
+for ii in range(InputYears.shape[0]):
+    tmpOutput = pd.merge(Dataset1[['Year','FirmID','BP','SIZE','BBBEE_Rank_Clean']],BPIndex[['Year',str('BPIndex_YR'+ str(InputYears[InputYearsColumn][ii]))]],on='Year',how='left')
+    tmpOutput = pd.merge(tmpOutput,SIZEIndex[['Year',str('SIZEIndex_YR'+ str(InputYears[InputYearsColumn][ii]))]],on='Year',how='left')
+    tmpOutput = pd.merge(tmpOutput,MarketPremium[['Year',str('MarketPremium_YR'+ str(InputYears[InputYearsColumn][ii]))]],on='Year',how='left')
+    tmpOutput = pd.merge(tmpOutput,RiskFreeReturn[['Year',str('RiskFreeReturn_YR'+ str(InputYears[InputYearsColumn][ii]))]],on='Year',how='left')
+    tmpOutput = pd.merge(tmpOutput,PriceLogReturn[['Year','FirmID',str('PriceLogReturn_YR'+ str(InputYears[InputYearsColumn][ii]))]],on=['Year','FirmID'],how='left')
+    #describe scatterplots, correlation matrix
+    
+    #Run Regression over different time horizons - simple bp, size, bpIndex, sizeIndex and 
+    
+
+
 
 #Adjust for outliers
-
-
+ 
 
 
 
 
 """
+
+
+    Inpdef DescribeMultipleYearsFactor(InputDataFrame,InputColumnPrefix,InputYears,InputYearsColumn,InputMainDataFrame):utDataFrame = BPIndex
+    InputColumnPrefix = 'BPIndex_YR'
+    InputYears = InpReturnHorizonYears
+    InputYearsColumn = 'ReturnHorizonYears'
+    InputMainDataFrame = Describe1
+
+InputDataFrame = BPIndex
+InputColumnPrefix = 'BPIndex_YR'
+InputYears = InpReturnHorizonYears
+InputMainDataFrame = Describe1
+for ii in range(InputYears.shape[0]):
+    print(InputYears['ReturnHorizonYears'][ii])
+    tmpColumnName = str(InputColumnPrefix+str(InputYears['ReturnHorizonYears'][ii]))
+    Describe1 = Functions.DescribeExNaN(InputDataFrame,tmpColumnName,Describe1)
+    
+
+
+
+
+a = z.count('BP')
+x = np.array(np.char.find(z, 'BP') != -1)
+Describe1 = Functions.DescribeExNaN(BPIndex,'BPIndex_YR2',Describe1)
+[s for s in list if sub in s]
+
+
+if any(item in z for item in 'BP'):
+    print(item)
+    
+
+
+InputDataFrame = BPIndex
+InputColumn = 'BPIndex_YR2'
+InputMainDataFrame = Describe1
+tmpDF = pd.DataFrame(InputDataFrame[InputColumn].dropna())
+tmpDescribe = pd.DataFrame(tmpDF.describe())
+tmpOutput = pd.merge(InputMainDataFrame,tmpDescribe,how='left',left_index=True, right_index=True)
+
+pd.merge(Describe1,Functions.DescribeExNaN(BPIndex,'BPIndex_YR2'),how='left',left_index=True, right_index=True)
+
+tmpDF = pd.DataFrame(BPIndex['BPIndex_YR2'].dropna())
+tmpDescribe = pd.DataFrame(tmpDF.describe())
+
 
 Dataset1 = Dataset1.loc[(Dataset1['Year']>-BBBEEStartYear)] #finalize Dataset1
 
