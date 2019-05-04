@@ -28,6 +28,7 @@
                20190504:                
                    - Created OLSStandardizeXCol to standardize x columns for regressions
                    - Abstracted regression for 5 years into function Regression5YearOutput
+                   - Created Abstracted scatterplots into PriceLogScatterplots
                    
 """ 
 
@@ -203,6 +204,20 @@ def Regression5YearOutput(InpDict, ExpDir):
     results_table.add_title(str('OLS Regressions - ' +  tmpModelName))    
     with open(ExpDir + 'OLS_Summary_' + tmpModelName + '.txt', 'w') as fh: #Output
         fh.write(results_table.as_text())
+
+def PriceLogScatterplots(inpXColumns,inpYColumn,inpDataFrame,ExpDir):
+    import pandas as pd
+    import matplotlib.pyplot as plt    
+    for xx in range(pd.DataFrame(inpXColumns).shape[0]):
+        tmpXColumn = inpXColumns[xx]
+        fig = plt.figure()
+        plt.rc('font', family='serif')
+        plt.scatter(inpDataFrame[tmpXColumn],inpDataFrame[inpYColumn],color='k')
+        plt.xlabel(tmpXColumn)
+        plt.ylabel(inpYColumn)
+        plt.show()
+        fig.savefig(ExpDir + 'ScatterPlot_'+ inpYColumn +  '_' + tmpXColumn + '.png')    
+   
 
 
 """
