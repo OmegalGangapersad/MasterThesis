@@ -25,6 +25,9 @@
                20190502:
                    - Created DescribeExNan function
                    - Created DescribeExNan for multiple years function called DescribeMultipleYearsFactor
+               20190504:                
+                   - Created OLSStandardizeXCol to standardize x columns for regressions
+                   - Abstracted regression for 5 years into function Regression5YearOutput
                    
 """ 
 
@@ -183,6 +186,24 @@ def OLSStandardizeXCol(InputDataFrame):
     InputDataFrame.columns = tmpXColumns[0]
     return InputDataFrame
     
+def Regression5YearOutput(InpDict, ExpDir):
+    import pandas as pd  
+    from statsmodels.iolib.summary2 import summary_col      
+    tmpKeys = pd.DataFrame(list(InpDict.keys()))
+    tmpModelName = tmpKeys[0][0][:-1] #get name from first key - assumes all key are the same 
+    results_table = summary_col(results=[InpDict[str(tmpModelName + '5')],
+                                         InpDict[str(tmpModelName + '4')],
+                                         InpDict[str(tmpModelName + '3')],
+                                         InpDict[str(tmpModelName + '2')],
+                                         InpDict[str(tmpModelName + '1')]],
+                                float_format='%0.2f',
+                                stars = True,
+                                model_names=['1','2','3','4','5'],
+                                info_dict={'N':lambda x: "{0:d}".format(int(x.nobs)),'R2':lambda x: "{:.2f}".format(x.rsquared)})
+    results_table.add_title(str('OLS Regressions - ' +  tmpModelName))    
+    with open(ExpDir + 'OLS_Summary_' + tmpModelName + '.txt', 'w') as fh: #Output
+        fh.write(results_table.as_text())
+
 
 """
 def RankingPerGroup(tmpColumns, tmpGroupOnColumnsInt, tmpSourceDataFrame): #enabled for list based grouping
