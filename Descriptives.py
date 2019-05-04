@@ -39,6 +39,7 @@
                 - Cleaned code
             20190504:
                 - Finished regressions methodology and non outlier adjusted models
+                - Flipped BBBEE Rank - so that higher BBBEE rank is better BBBEE. This improves intuition in regression and scatterplot
 """
 
 ##START SCRIPT
@@ -183,10 +184,12 @@ del ii
 YearBBBEECount= Dataset1[['BBBEE_Rank','Year']].groupby('Year').count()
 YearBBBEECount.loc[(YearBBBEECount['BBBEE_Rank']==0)] = float('nan')
 MinBBBEECount = round(YearBBBEECount['BBBEE_Rank'].min(),-1) # find lowest number of observations BBBEE Rank rounded on nearest 10
-tmpCleanRank = Dataset1.groupby('Year')['BBBEE_Rank'].rank(ascending=True) #rerank BBBEE based on year
+tmpCleanRank = Dataset1.groupby('Year')['BBBEE_Rank'].rank(ascending=True) #rerank BBBEE based on year 
 Dataset1['BBBEE_Rank_Clean'] = tmpCleanRank
 Dataset1.loc[(Dataset1['BBBEE_Rank_Clean'] > MinBBBEECount),'BBBEE_Rank_Clean'] = float('nan')
-del tmpCleanRank
+tmpCleanRank2 = Dataset1.groupby('Year')['BBBEE_Rank_Clean'].rank(ascending=False) #make BBBEE Rank higher the better - to improve interpretability in regressions
+Dataset1['BBBEE_Rank_Clean'] = tmpCleanRank2
+del tmpCleanRank, tmpCleanRank2
 
 #Add industry dummy
 tmpSECTORID = StagingFirm[['DS_SECTORNAME','DS_SECTORID']].drop_duplicates()
