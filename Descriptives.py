@@ -37,6 +37,8 @@
                 - Started on descriptives and scatterplot/regression/correlationmatrix per year
                 - Finished descriptives (describe) and regression per year
                 - Cleaned code
+            20190504:
+                - Finished regressions methodology and non outlier adjusted models
 """
 
 ##START SCRIPT
@@ -48,6 +50,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import statsmodels.api as sm
+from statsmodels.iolib.summary2 import summary_col
 tmpScriptName = os.path.basename(__file__)
 tmpStartTimeScript = datetime.datetime.now()
 tmpScriptName = os.path.basename(__file__)
@@ -147,7 +150,6 @@ InpReturnHorizonYears.columns = ['ReturnHorizonYears']
 
 for ii in range(InpReturnHorizonYears.shape[0]): #Create returns, BPIndex, SIZEIndex, RiskFreeReturn and MarketReturn
     tmpReturnHorizonYears = InpReturnHorizonYears['ReturnHorizonYears'][ii]
-    print(tmpReturnHorizonYears)
     tmpDF = PriceLogReturnMatrix
     tmpDF = tmpDF.fillna(0) #replace nan with 0 to be able to calculate yearly return
     if tmpReturnHorizonYears > 1:
@@ -226,38 +228,186 @@ InpReturnHorizonYears = pd.DataFrame([1,2,3,4,5])
 InputYears = InpReturnHorizonYears
 InputYears[0]
 OutputSet = Dataset1[['Year','FirmID','BP','SIZE','BBBEE_Rank_Clean']]
-for ii in range(InputYears.shape[0]):
+RegressionOutputSimple = {}
+RegressionOutputNormal = {}
+
+for ii in range(InputYears.shape[0]): #see https://lectures.quantecon.org/py/ols.html
     tmpOutput = pd.merge(Dataset1[['Year','FirmID','BP','SIZE','BBBEE_Rank_Clean']],BPIndex[['Year',str('BPIndex_YR'+ str(InputYears[0][ii]))]],on='Year',how='left')
     tmpOutput = pd.merge(tmpOutput,SIZEIndex[['Year',str('SIZEIndex_YR'+ str(InputYears[0][ii]))]],on='Year',how='left')
     tmpOutput = pd.merge(tmpOutput,MarketPremium[['Year',str('MarketPremium_YR'+ str(InputYears[0][ii]))]],on='Year',how='left')
     tmpOutput = pd.merge(tmpOutput,RiskFreeReturn[['Year',str('RiskFreeReturn_YR'+ str(InputYears[0][ii]))]],on='Year',how='left')
     tmpOutput = pd.merge(tmpOutput,PriceLogReturn[['Year','FirmID',str('PriceLogReturn_YR'+ str(InputYears[0][ii]))]],on=['Year','FirmID'],how='left')
+    tmpOutput = pd.merge(tmpOutput,SectorDummy,on=['Year','FirmID'],how='left')
     #correlation matrix
     tmpCorrelationMatrix = pd.DataFrame(tmpOutput.corr())
     tmpCorrelationMatrix.to_excel(ExportDir + 'CorrelationMatrix_YR' + str(InputYears[0][ii])+ '.xlsx', sheet_name='Input')
     #create scatterplots    
     #Run Regression over different time horizons - simple bp, size, bpIndex, sizeIndex and     
-    tmpX1 = tmpOutput.drop(['Year','FirmID','BP','SIZE',str('PriceLogReturn_YR'+ str(InputYears[0][ii]))], axis=1)
-    tmpX2 = tmpOutput.drop(['Year','FirmID',str('BPIndex_YR'+ str(InputYears[0][ii])),str('SIZEIndex_YR'+ str(InputYears[0][ii])),str('PriceLogReturn_YR'+ str(InputYears[0][ii]))], axis=1)
     tmpY = tmpOutput[[str('PriceLogReturn_YR'+ str(InputYears[0][ii]))]]    
+    tmpX1 = tmpOutput.drop(['Year','FirmID',str('BPIndex_YR'+ str(InputYears[0][ii])),str('SIZEIndex_YR'+ str(InputYears[0][ii])),str('PriceLogReturn_YR'+ str(InputYears[0][ii]))], axis=1)
+    tmpX1 = Functions.OLSStandardizeXCol(tmpX1)    
+    tmpX2 = tmpOutput.drop(['Year','FirmID','BP','SIZE',str('PriceLogReturn_YR'+ str(InputYears[0][ii]))], axis=1)
+    tmpX2 = Functions.OLSStandardizeXCol(tmpX2)    
+    
     tmpOLSSimpleFF = sm.OLS(tmpY,tmpX1, missing='drop')
     tmpOLSSimpleFFResults = tmpOLSSimpleFF.fit()
-    with open(ExportDir + 'OLS_Summary_SimpleFF_YR'+ str(InputYears[0][ii]) +'.csv', 'w') as fh:
-        fh.write(tmpOLSSimpleFFResults.summary().as_csv())
-    tmpOLSNormalFF = sm.OLS(tmpY,tmpX1, missing='drop')
+    tmpKey = str('SimpleFF' + str(InputYears[0][ii]))   # https://stackoverflow.com/questions/5036700/how-can-you-dynamically-create-variables-via-a-while-loop 
+    tmpValue = tmpOLSSimpleFFResults    
+    RegressionOutputSimple[tmpKey] = tmpValue    
+    del tmpKey, tmpValue
+        
+    tmpOLSNormalFF = sm.OLS(tmpY,tmpX2, missing='drop')
     tmpOLSNormalFFResults = tmpOLSNormalFF.fit()  
-    with open(ExportDir + 'OLS_Summary_NormalFF_YR' + str(InputYears[0][ii]) +'.csv', 'w') as fh:
-        fh.write(tmpOLSNormalFFResults.summary().as_csv())
+    tmpKey1 = str('NormalFF' + str(InputYears[0][ii]))   # https://stackoverflow.com/questions/5036700/how-can-you-dynamically-create-variables-via-a-while-loop 
+    tmpValue1 = tmpOLSNormalFFResults    
+    RegressionOutputNormal[tmpKey1] = tmpValue1  
+    del tmpKey1, tmpValue1
+    
+    del tmpOutput,tmpCorrelationMatrix,tmpX1,tmpX2,tmpY,tmpOLSSimpleFF,tmpOLSSimpleFFResults,tmpOLSNormalFF,tmpOLSNormalFFResults
+    
+# Output Regression results Simple
+results_table = summary_col(results=[RegressionOutputSimple['SimpleFF5'],RegressionOutputSimple['SimpleFF4'],RegressionOutputSimple['SimpleFF3'],RegressionOutputSimple['SimpleFF2'],RegressionOutputSimple['SimpleFF1']],
+                            float_format='%0.2f',
+                            stars = True,
+                            model_names=['1','2','3','4','5'],
+                            info_dict={'N':lambda x: "{0:d}".format(int(x.nobs)),'R2':lambda x: "{:.2f}".format(x.rsquared)})
+results_table.add_title('OLS Regressions - SimpleFF')                           
+print(results_table)
+with open(ExportDir + 'OLS_Summary_SimpleFF_Regr' +'.txt', 'w') as fh: #Output
+    fh.write(results_table.as_text())
+with open(ExportDir + 'OLS_Summary_SimpleFF_Regr' +'.tex', 'w') as fh:
+    fh.write(results_table.as_latex())
+del results_table
+
+
+# Output Regression results Normal - why no rsquared
+results_table1 = summary_col(results=[RegressionOutputNormal['NormalFF5'],RegressionOutputNormal['NormalFF4'],RegressionOutputNormal['NormalFF3'],RegressionOutputNormal['NormalFF2'],RegressionOutputNormal['NormalFF1']],
+                            float_format='%0.2f',
+                            stars = True,
+                            model_names=['1','2','3','4','5'],
+                            info_dict={'N':lambda x: "{0:d}".format(int(x.nobs)),'R2':lambda x: "{:.2f}".format(x.rsquared)})
+results_table1.add_title('OLS Regressions - NormalFF')                           
+print(results_table1)
+with open(ExportDir + 'OLS_Summary_NormalFF_Regr' +'.txt', 'w') as fh: #Output
+    fh.write(results_table1.as_text())
+with open(ExportDir + 'OLS_Summary_NormalFF_Regr' +'.tex', 'w') as fh:
+    fh.write(results_table1.as_latex())
+    
+
+    
+"""
+res.bse
+    try:
+        
+       # RegressionInfo['R2'].append(tmpR2)
+    except:
+        #RegressionInfo = {'R-squared' : tmpRSquared}          
+        RegressionR2['SimpleR2'] = tmpR2
+
+    with open(ExportDir + 'OLS_Summary_SimpleFF_YR'+ str(InputYears[0][ii]) +'.csv', 'w') as fh:
+        fh.write(tmpOLSSimpleFFResults.summary().as_csv())   
+    del tmpKey, tmpValue
+    
+    tmpOLSNormalFF = sm.OLS(tmpY,tmpX2, missing='drop')
+    tmpOLSNormalFFResults = tmpOLSNormalFF.fit()      
+   
     del tmpOutput,tmpCorrelationMatrix,tmpX1,tmpX2,tmpY,tmpOLSSimpleFF,tmpOLSSimpleFFResults,tmpOLSNormalFF,tmpOLSNormalFFResults
 
 
 #Adjust for outliers
- 
+
+RegressionInfo = {'R-squared' : RegressionR2Simple,'No. observations' : RegressionObsSimple} 
+
+info_dict={'R-squared' : lambda x: f"{x.rsquared:.2f}",
+           'No. observations' : lambda x: f"{int(x.nobs):d}"}
+
+results_table = summary_col(results=[RegressionOutput['SimpleFF5'],RegressionOutput['SimpleFF4'],RegressionOutput['SimpleFF3'],RegressionOutput['SimpleFF2'],RegressionOutput['SimpleFF1']],
+                            float_format='%0.2f',
+                            stars = True,
+                            model_names=['1','2','3','4','5'],
+                            info_dict={'N':lambda x: "{0:d}".format(int(x.nobs)),'R2':lambda x: "{:.2f}".format(x.rsquared)})
+results_table.add_title('Table 2 - OLS Regressions')                           
+print(results_table)
+with open(ExportDir + 'OLS_Summary_SimpleFF_Regr' +'.txt', 'w') as fh: #Output
+    f.write(results_table.as_text())
+with open(ExportDir + 'OLS_Summary_SimpleFF_Regr' +'.tex', 'w') as fh:
+    f.write(results_table.as_latex())
+
+
+
+write_path = ExportDir + 'OLS_Summary_SimpleFF_Regr' +'.txt'
+with open(write_path, 'w') as f:
+    f.write(results_table.as_text())
+    
+    
+from statsmodels.iolib.summary2 import summary_col
+
+info_dict=RegressionInfo
+results_table = summary_col(results=[RegressionOutput['SimpleFF5'],RegressionOutput['SimpleFF4'],RegressionOutput['SimpleFF3'],RegressionOutput['SimpleFF2'],RegressionOutput['SimpleFF1']],
+                            float_format='%0.2f',
+                            stars = True,
+                            model_names=['1',
+                                         '2',
+                                         '3',
+                                         '4',
+                                         '5'],
+                            info_dict=info_dict,
+                            )
+
+results_table.add_title('Table 2 - OLS Regressions')
+results_table.as_text()
+print(results_table.Summary)
 
 
 
 
-"""
+from statsmodels.iolib.summary2 import summary_col
+
+info_dict={'R-squared' : lambda x: f"{x.rsquared:.2f}",
+           'No. observations' : lambda x: f"{int(x.nobs):d}"}
+
+results_table = summary_col(results=[reg1,reg2,reg3],
+                            float_format='%0.2f',
+                            stars = True,
+                            model_names=['Model 1',
+                                         'Model 3',
+                                         'Model 4'],
+                            info_dict=info_dict,
+                            regressor_order=['const',
+                                             'avexpr',
+                                             'lat_abst',
+                                             'asia',
+                                             'africa'])
+
+results_table.add_title('Table 2 - OLS Regressions')
+
+print(results_table)
+
+
+
+= [RegressionInfo ['R-squared'],tmpRSquared]
+     dictionary[key].append(value)
+     
+    tmpOLSNormalFF = sm.OLS(tmpY,tmpX2, missing='drop')
+    tmpOLSNormalFFResults = tmpOLSNormalFF.fit()      
+    tmpKey = str('NormalFF' + str(InputYears[0][ii]))   # https://stackoverflow.com/questions/5036700/how-can-you-dynamically-create-variables-via-a-while-loop 
+    tmpValue = tmpOLSNormalFFResults
+    RegressionOutput[tmpKey] = tmpValue     
+    with open(ExportDir + 'OLS_Summary_NormalFF_YR' + str(InputYears[0][ii]) +'.csv', 'w') as fh:
+        fh.write(tmpOLSNormalFFResults.summary().as_csv())
+    del tmpKey, tmpValue
+        
+
+tmpOLSSimmpleFF = str('SimpleFF' + str(InputYears[0][ii]))
+    tmpOLSSimmpleFF = str('SimpleFF' + str(InputYears[0][ii]))
+    
+with open(ExportDir + 'OLS_Summary_SimpleFF_YR'+ str(InputYears[0][ii]) +'.csv', 'w') as fh:
+        fh.write(tmpOLSSimpleFFResults.summary().as_csv())
+
+with open(ExportDir + 'OLS_Summary_NormalFF_YR' + str(InputYears[0][ii]) +'.csv', 'w') as fh:
+        fh.write(tmpOLSNormalFFResults.summary().as_csv())
+
+
 check here for table to latex https://economics.stackexchange.com/questions/11774/outputting-regressions-as-table-in-python-similar-to-outreg-in-stata
 
     Inpdef DescribeMultipleYearsFactor(InputDataFrame,InputColumnPrefix,InputYears,InputYearsColumn,InputMainDataFrame):utDataFrame = BPIndex
