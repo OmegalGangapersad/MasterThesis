@@ -30,6 +30,8 @@
                    - Abstracted regression for 5 years into function Regression5YearOutput
                    - Created Abstracted scatterplots into PriceLogScatterplots                  
                    - Cleaned code
+               20190505: 
+                   - Created SimpleLineChart function
 """ 
 
 def LogScript(ScriptName, Time, LogComment):
@@ -205,6 +207,25 @@ def Regression5YearOutput(InpDict, ExpDir,InpTitlePrefix):
     with open(ExpDir + InpTitlePrefix + tmpModelName + '.txt', 'w') as fh: #Output
         fh.write(results_table.as_text())
 
+def SimpleLineChart(inpXColumn,inpYColumn,inpDataFrame,ExpDir,XLabel,YLabel):    
+    import matplotlib.pyplot as plt
+    if XLabel == '':
+        XLabel = inpXColumn
+    else:
+        XLabel = XLabel        
+    if YLabel == '':
+        YLabel = inpYColumn
+    else:
+        YLabel = YLabel
+        
+    fig = plt.figure()
+    plt.rc('font', family='serif')
+    plt.plot(inpDataFrame[inpYColumn],inpDataFrame[inpXColumn],color='k')
+    plt.xlabel(YLabel)
+    plt.ylabel(XLabel)
+    plt.show()
+    fig.savefig(ExpDir + 'ScatterPlot_'+ inpYColumn +  '_' + inpXColumn + '.png')   
+    
 def PriceLogScatterplots(inpXColumns,inpYColumn,inpDataFrame,ExpDir):
     import pandas as pd
     import matplotlib.pyplot as plt
