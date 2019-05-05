@@ -38,7 +38,7 @@
                 - Structure from DS (most data) only removed columns with no value
             20190426:    
                 - Restructured the Error finding code, as it did not capture all errors - code slowed significantly
-                - Restructered the StagingPrice, MV BVPS etc. to make it simpler
+                - Restructered the StagingPrice, SIZE BVPS etc. to make it simpler
                 - Added BP
                 - I noticed this script downloads the Rawdata each time rather than  access from local disk
                 - Added minimum shareprice to correct for penny stock
@@ -53,6 +53,9 @@
                 - Added Sector   
                 - Cleaned code
                 - rounded calculations BP and returns on 2 decimals
+                - replaced SIZE with SIZE
+            20190505:
+                - added JSE
 """
 ##START SCRIPT
 import os
@@ -72,11 +75,12 @@ import ReadRawData
 RawBBBEE = ReadRawData.RawDataBBBEE
 RawPRICE = ReadRawData.RawDataPRICE
 RawBVPS = ReadRawData.RawDataBVPS
-RawMV = ReadRawData.RawDataMV
+RawSIZE = ReadRawData.RawDataSIZE
 RawYLD = ReadRawData.RawDataYLD
 RawFIRMDS = ReadRawData.RawDataFIRMDS
 RawFIRMBBBEEDS = ReadRawData.RawDataFIRMBBBEEDS
 RawDataSECTOR = ReadRawData.RawDataSECTOR
+RawDataJSE = ReadRawData.RawDataJSE
 
 ##STEP1: CREATE STAGINGDATES
 Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Start STEP1: Create StagingDates')
@@ -93,7 +97,7 @@ StagingPrice = pd.DataFrame(StagingPrice)
 StagingPrice[StagingPrice==0] = 0.01
 StagingPrice = np.array(StagingPrice)
 StagingBVPS = np.array(RawBVPS)[:,1:]
-StagingMV = np.array(RawMV)[:,1:]
+StagingSIZE = np.array(RawSIZE)[:,1:]
 
 #FIND AND REMOVE COLUMNS ERROR AND PENNY STOCKS
 Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Start STEP2: Create StagingDates - FIND AND REMOVE COLUMNS ERROR AND PENNY STOCKS')
@@ -103,7 +107,7 @@ tmpMaxTimeFail = math.ceil(0.1*StagingPrice.shape[0])
 ErrorRow = np.zeros(shape=StagingPrice.shape[1])
 PennyRow = np.zeros(shape=StagingPrice.shape[1])
 for ii in range(StagingPrice.shape[1]):
-    tmpStrValues = np.array([str(StagingPrice[0,ii]),str(StagingBVPS[0,ii]),str(StagingMV[0,ii])]) 
+    tmpStrValues = np.array([str(StagingPrice[0,ii]),str(StagingBVPS[0,ii]),str(StagingSIZE[0,ii])]) 
     tmpFalseValues = np.array(np.array(np.char.find(tmpStrValues, tmpErrorStr) == -1))[np.array(np.char.find(tmpStrValues, tmpErrorStr) != -1)] #np.char.find returns a value unequal to -1 if any of the values in the tmpArray contains '$$ER', here I ask to return a array where the values are unequal to -1 (so return the array which contains all the errors)     
     if tmpFalseValues.shape[0] >0: 
         ErrorRow[ii] = True
@@ -122,7 +126,7 @@ StagingPrice = pd.DataFrame(StagingPrice[:,TotErrorRow == False])
 StagingBVPS = pd.DataFrame(StagingBVPS[:,TotErrorRow == False])
 StagingBP = pd.DataFrame(np.divide(np.array(StagingBVPS),np.array(StagingPrice)))
 StagingBP = pd.DataFrame(np.round(StagingBP.astype(np.double),2))    #round at 2 decimals, do not need extreme precision which costs more memory
-StagingMV = pd.DataFrame(StagingMV[:,TotErrorRow == False])
+StagingSIZE = pd.DataFrame(StagingSIZE[:,TotErrorRow == False])
 StagingPriceReturn = StagingPrice.pct_change()
 StagingPriceReturn = pd.DataFrame(np.round(StagingPriceReturn.astype(np.double),4))
 StagingPriceReturnCum = (1+StagingPriceReturn).cumprod() -1
@@ -146,7 +150,7 @@ Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Start STEP4: Create S
 StackPrice = Functions.StackDFDS_simple(StagingPrice,'Price') 
 StackBVPS = Functions.StackDFDS_simple(StagingBVPS,'BVPS')
 StackBP = Functions.StackDFDS_simple(StagingBP,'BP')
-StackMV = Functions.StackDFDS_simple(StagingMV,'MV')
+StackSIZE = Functions.StackDFDS_simple(StagingSIZE,'SIZE')
 StackPriceReturn = Functions.StackDFDS_simple(StagingPriceReturn,'PriceReturn')
 StackPriceReturnCum = Functions.StackDFDS_simple(StagingPriceReturnCum,'PriceReturnCum')
 StackPriceLogReturn = Functions.StackDFDS_simple(StagingPriceLogReturn,'PriceLogReturn')
@@ -158,13 +162,13 @@ StagingDS = pd.DataFrame({
 StagingDS =  pd.merge(StagingDS,StackPrice, on=['FirmID', 'DateID'], how='left')    
 StagingDS =  pd.merge(StagingDS,StackBVPS, on=['FirmID', 'DateID'], how='left')
 StagingDS =  pd.merge(StagingDS,StackBP, on=['FirmID', 'DateID'], how='left')
-StagingDS =  pd.merge(StagingDS,StackMV, on=['FirmID', 'DateID'], how='left')
+StagingDS =  pd.merge(StagingDS,StackSIZE, on=['FirmID', 'DateID'], how='left')
 StagingDS =  pd.merge(StagingDS,StackPriceReturn, on=['FirmID', 'DateID'], how='left')
 StagingDS =  pd.merge(StagingDS,StackPriceReturnCum, on=['FirmID', 'DateID'], how='left')
 StagingDS =  pd.merge(StagingDS,StackPriceLogReturn, on=['FirmID', 'DateID'], how='left')
 StagingDS =  pd.merge(StagingDS,StackPriceLogReturnCum, on=['FirmID', 'DateID'], how='left')
-del StackBVPS,StackBP,StackMV,StackPriceReturn,StackPriceReturnCum,StackPriceLogReturn,StackPriceLogReturnCum
-del StagingBVPS,StagingBP,StagingMV,StagingPriceReturn,StagingPriceReturnCum,StagingPriceLogReturn,StagingPriceLogReturnCum
+del StackBVPS,StackBP,StackSIZE,StackPriceReturn,StackPriceReturnCum,StackPriceLogReturn,StackPriceLogReturnCum
+del StagingBVPS,StagingBP,StagingSIZE,StagingPriceReturn,StagingPriceReturnCum,StagingPriceLogReturn,StagingPriceLogReturnCum
 
 #ADD YIELDS TO STACKDS
 Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Start STEP4: Create StagingDS - ADD YIELDS TO StagingDS')
@@ -221,7 +225,7 @@ StagingBBBEE = pd.DataFrame({
                             'BBBEE_SOC': np.array(StagingBBBEE['Score_SocioEconomicDevelopment'])                       
                             })
 StagingBBBEE = StagingBBBEE[['Year','FirmID','BBBEE_Rank','BBBEE_Score','BBBEE_OWN','BBBEE_MAN','BBBEE_EMP','BBBEE_SKL','BBBEE_PRF','BBBEE_ENT','BBBEE_SOC']] #force order
-
+StagingJSE = RawDataJSE #not adjusted, just copied
 
 ##STEP6: OUTPUT
 Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Start STEP6: Output')
@@ -231,7 +235,7 @@ StagingDates.to_csv(ExportDir + 'Dates.csv', encoding='utf-8', index=False)
 StagingFirmID.to_csv(ExportDir + 'Firm.csv', encoding='utf-8', index=False)
 StagingDS.to_csv(ExportDir + 'DS.csv', encoding='utf-8', index=False)
 StagingBBBEE.to_csv(ExportDir + 'BBBEE.csv', encoding='utf-8', index=False)
-
+StagingJSE.to_csv(ExportDir + 'JSE.csv', encoding='utf-8', index=False) 
 
 ##END SCRIPT
 Functions.LogScript(tmpScriptName,datetime.datetime.now(),'End Script, RunTime: '+ Functions.StrfTimeDelta(datetime.datetime.now()-tmpStartTimeScript))
