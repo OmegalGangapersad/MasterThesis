@@ -45,6 +45,8 @@
                 - Started with outlier adjusted analysis
                 - Finished outlier adjusted analysis
                 - Cleaned code
+            20190505:
+                - Added comparison to JSE sector
 """
 
 ##START SCRIPT
@@ -71,12 +73,14 @@ try:
     InputFilenameDS = 'DS.csv'
     InputFilenameFirm = 'Firm.csv'
     InputFilenameDates = 'Dates.csv'  
+    InputFilenameJSE = 'JSE.csv'  
     tmpMainDir = os.path.dirname(os.path.realpath(__file__)) #working directory
     tmpImportDirectory = tmpMainDir + '\\Input\\StagingData\\' 
     StagingBBBEE = pd.read_csv(tmpImportDirectory + InputFilenameBBBEE)
     StagingDS = pd.read_csv(tmpImportDirectory + InputFilenameDS)
     StagingFirm = pd.read_csv(tmpImportDirectory + InputFilenameFirm)
     StagingDates = pd.read_csv(tmpImportDirectory + InputFilenameDates)
+    StagingJSE = pd.read_csv(tmpImportDirectory + InputFilenameJSE)
     del InputFilenameBBBEE, InputFilenameDS, InputFilenameFirm, InputFilenameDates, tmpMainDir, tmpImportDirectory
 except:
     import StagingData
@@ -187,6 +191,10 @@ del ii
 #Adjust BBBEE Rank data
 YearBBBEECount= Dataset1[['BBBEE_Rank','Year']].groupby('Year').count()
 YearBBBEECount.loc[(YearBBBEECount['BBBEE_Rank']==0)] = float('nan')
+tmpPlot = YearBBBEECount
+tmpPlot = tmpPlot.reset_index()
+Functions.SimpleLineChart('BBBEE_Rank','Year',tmpPlot,ExportDir,'Number of BBBEE ranked observations','') #plot observation of BBBEE through time
+del tmpPlot
 MinBBBEECount = round(YearBBBEECount['BBBEE_Rank'].min(),-1) # find lowest number of observations BBBEE Rank rounded on nearest 10
 tmpCleanRank = Dataset1.groupby('Year')['BBBEE_Rank'].rank(ascending=True) #rerank BBBEE based on year 
 Dataset1['BBBEE_Rank_Clean'] = tmpCleanRank
@@ -203,6 +211,36 @@ for ii in range(tmpSECTORID.shape[0]): #create a dummy variable name for all DS_
     tmpColumnName = str('DSDUMMY_' + str(tmpSECTORID['DS_SECTORNAME'][ii]))
     SectorDummy[str(tmpColumnName)] = np.zeros(shape=(SectorDummy.shape[0],1))
     SectorDummy.loc[(SectorDummy['DS_SECTORID'] == tmpSECTORID['DS_SECTORID'][ii]),str(tmpColumnName)] = 1
+
+#compare with JSE
+tmpSectorDataset1 = Dataset1[['FirmID','Year','DS_SECTORID','BBBEE_Rank_Clean']] # Dataset1
+tmpSectorDataset1 = tmpSectorDataset1.dropna()
+tmpSectorDatasetPivot = tmpSectorDataset1.pivot_table('FirmID', index='Year', columns='DS_SECTORID', aggfunc='count')
+tmpSectorDatasetPivot.reset_index(drop=True)
+tmpSectorDatasetPivot = tmpSectorDatasetPivot.fillna(0)
+tmpYearSector = tmpSectorDataset1[['BBBEE_Rank_Clean','Year']].groupby('Year').count()
+tmpYearSector = pd.DataFrame(np.matlib.repmat(np.array(tmpYearSector), 1, tmpSectorDatasetPivot.shape[1]))
+tmpSector1 = np.array(tmpSectorDatasetPivot) / np.array(tmpYearSector)
+
+StagingJSE = pd.merge(StagingJSE,tmpSECTORID,on='DS_SECTORNAME',how='left') #calc JSE 
+tmpJSE = StagingJSE[['DS_SECTORNAME','DS_SECTORID']].groupby('DS_SECTORID').count()
+tmpJSETot = StagingJSE['DS_SECTORNAME'].count()
+tmpJSE = tmpJSE/tmpJSETot
+tmpJSE = np.transpose(tmpJSE)
+tmpJSE2 = np.matlib.repmat(np.array(tmpJSE), tmpSectorDatasetPivot.shape[0],1)
+
+tmpSectorYears = tmpSectorDatasetPivot.reset_index() #Calc diff
+tmpSectorYears = tmpSectorYears[['Year']]
+tmpJSEDataset1Diff = tmpSector1 - tmpJSE2 
+
+tmpJSEDataset1Diff = pd.DataFrame(tmpJSEDataset1Diff) #prep for export
+tmpJSEDataset1Diff['Year'] = tmpSectorYears
+tmpJSEDataset1Diff = tmpJSEDataset1Diff.set_index('Year', drop=True)
+tmpColumns = tmpSECTORID.set_index('DS_SECTORID',drop=True)
+tmpColumns=tmpColumns.sort_index()
+tmpColumns = list(tmpColumns['DS_SECTORNAME'])
+tmpJSEDataset1Diff.columns = tmpColumns
+tmpJSEDataset1Diff.to_excel(ExportDir + "RelativeDifference_JSE_Dataset.xlsx",sheet_name='Input')
 
 del tmpSECTORID,ii
 SectorDummy = SectorDummy.drop(['DS_SECTORID'], axis=1)
