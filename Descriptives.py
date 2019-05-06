@@ -48,7 +48,8 @@
             20190505:
                 - Added comparison to JSE sector
             20190506:
-                - Removed all rows with no BBBEE value in dataset1 before describe1
+                - Remove #remove all rows with no BBBEE value
+                - Removed duplicates from regression analysis tmpOutput dataset
 """
 
 ##START SCRIPT
@@ -249,7 +250,6 @@ SectorDummy = SectorDummy.drop(['DS_SECTORID'], axis=1)
 
 #Finalize Variables
 Dataset1 = Dataset1.loc[(Dataset1['Year']>=BBBEEStartYear)] #finalize Dataset1
-Dataset1 = Dataset1.loc[(np.isnan(np.array(Dataset1['BBBEE_Rank_Clean']))==False)]#remove all rows with no BBBEE value
 SectorDummy = SectorDummy.loc[(SectorDummy['Year']>=BBBEEStartYear)] #finalize SectorDummy
 BPIndex = BPIndex.loc[(BPIndex['Year']>=BBBEEStartYear)] #finalize BPIndex
 SIZEIndex = SIZEIndex.loc[(SIZEIndex['Year']>=BBBEEStartYear)] #finalize BPIndex
@@ -259,26 +259,31 @@ RiskFreeReturn = RiskFreeReturn.loc[(RiskFreeReturn['Year']>=BBBEEStartYear)] #f
 PriceLogReturn = PriceLogReturn.loc[(PriceLogReturn['Year']>=BBBEEStartYear)] 
 
 #Run Descriptives over different time horizons - describe
+tmpBP = Dataset1.loc[(np.isnan(np.array(Dataset1['BBBEE_Rank_Clean']))==False)]#remove all rows with no BBBEE value
+tmpSIZE = Dataset1.loc[(np.isnan(np.array(Dataset1['BBBEE_Rank_Clean']))==False)]#remove all rows with no BBBEE value
+tmpPriceLogReturn = PriceLogReturn.loc[(np.isnan(np.array(Dataset1['BBBEE_Rank_Clean']))==False)]
 Describe1 = pd.DataFrame(Dataset1['FirmID'].describe())
-Describe1 = Functions.DescribeExNaN(Dataset1,'BP',Describe1)
-Describe1 = Functions.DescribeExNaN(Dataset1,'SIZE',Describe1)
+Describe1 = Functions.DescribeExNaN(tmpBP,'BP',Describe1)
+Describe1 = Functions.DescribeExNaN(tmpSIZE,'SIZE',Describe1)
 Describe1 = pd.DataFrame(Functions.DescribeMultipleYearsFactor(BPIndex,'BPIndex_YR',InpReturnHorizonYears,'ReturnHorizonYears',Describe1)) #describes over all the InputYears for this factor
 Describe1 = pd.DataFrame(Functions.DescribeMultipleYearsFactor(SIZEIndex,'SIZEIndex_YR',InpReturnHorizonYears,'ReturnHorizonYears',Describe1))
 Describe1 = pd.DataFrame(Functions.DescribeMultipleYearsFactor(MarketPremium,'MarketPremium_YR',InpReturnHorizonYears,'ReturnHorizonYears',Describe1))
 Describe1 = pd.DataFrame(Functions.DescribeMultipleYearsFactor(MarketReturn,'MarketReturn_YR',InpReturnHorizonYears,'ReturnHorizonYears',Describe1))
 Describe1 = pd.DataFrame(Functions.DescribeMultipleYearsFactor(RiskFreeReturn,'RiskFreeReturn_YR',InpReturnHorizonYears,'ReturnHorizonYears',Describe1))
-Describe1 = pd.DataFrame(Functions.DescribeMultipleYearsFactor(PriceLogReturn,'PriceLogReturn_YR',InpReturnHorizonYears,'ReturnHorizonYears',Describe1))
+Describe1 = pd.DataFrame(Functions.DescribeMultipleYearsFactor(tmpPriceLogReturn,'PriceLogReturn_YR',InpReturnHorizonYears,'ReturnHorizonYears',Describe1))
 Describe1.to_excel(ExportDir + 'Descriptives.xlsx', sheet_name='Input')
+del tmpBP, tmpSIZE
 
 #Run Descriptives over different time horizons - describe, scatterplots, correlation matrix
 InpReturnHorizonYears = pd.DataFrame([1,2,3,4,5])
 InputYears = InpReturnHorizonYears
 OutputSet = Dataset1[['Year','FirmID','BP','SIZE','BBBEE_Rank_Clean']]
+OutputSet = OutputSet.dropna()
 RegressionOutputSimple = {}
 RegressionOutputNormal = {}
 
 for ii in range(InputYears.shape[0]): #see https://lectures.quantecon.org/py/ols.html
-    tmpOutput = pd.merge(Dataset1[['Year','FirmID','BP','SIZE','BBBEE_Rank_Clean']],BPIndex[['Year',str('BPIndex_YR'+ str(InputYears[0][ii]))]],on='Year',how='left')
+    tmpOutput = pd.merge(OutputSet[['Year','FirmID','BP','SIZE','BBBEE_Rank_Clean']],BPIndex[['Year',str('BPIndex_YR'+ str(InputYears[0][ii]))]],on='Year',how='left')
     tmpOutput['BBBEE_Rank'] = tmpOutput['BBBEE_Rank_Clean']
     tmpOutput = tmpOutput.drop('BBBEE_Rank_Clean', axis=1)
     tmpOutput = pd.merge(tmpOutput,SIZEIndex[['Year',str('SIZEIndex_YR'+ str(InputYears[0][ii]))]],on='Year',how='left')
@@ -286,6 +291,7 @@ for ii in range(InputYears.shape[0]): #see https://lectures.quantecon.org/py/ols
     tmpOutput = pd.merge(tmpOutput,RiskFreeReturn[['Year',str('RiskFreeReturn_YR'+ str(InputYears[0][ii]))]],on='Year',how='left')
     tmpOutput = pd.merge(tmpOutput,PriceLogReturn[['Year','FirmID',str('PriceLogReturn_YR'+ str(InputYears[0][ii]))]],on=['Year','FirmID'],how='left')
     tmpOutput = pd.merge(tmpOutput,SectorDummy,on=['Year','FirmID'],how='left')
+    tmpOutput = tmpOutput.drop_duplicates()
     
     #correlation matrix
     tmpCorrelationMatrix = pd.DataFrame(tmpOutput.corr())
@@ -413,26 +419,31 @@ for ii in range(InpReturnHorizonYears.shape[0]):
     del tmpDF, tmpBPTop, tmpBPBottom, tmpSIZETop, tmpSIZEBottom
 
 #Run Descriptives over different time horizons - describe
+tmpBP = Dataset2.loc[(np.isnan(np.array(Dataset1['BBBEE_Rank_Clean']))==False)]#remove all rows with no BBBEE value
+tmpSIZE = Dataset2.loc[(np.isnan(np.array(Dataset1['BBBEE_Rank_Clean']))==False)]#remove all rows with no BBBEE value
+tmpPriceLogReturn = PriceLogReturn2.loc[(np.isnan(np.array(Dataset1['BBBEE_Rank_Clean']))==False)]
 Describe2 = pd.DataFrame(Dataset2['FirmID'].describe())
-Describe2 = Functions.DescribeExNaN(Dataset2,'BP',Describe2)
-Describe2 = Functions.DescribeExNaN(Dataset2,'SIZE',Describe2)
+Describe2 = Functions.DescribeExNaN(tmpBP,'BP',Describe2)
+Describe2 = Functions.DescribeExNaN(tmpSIZE,'SIZE',Describe2)
 Describe2 = pd.DataFrame(Functions.DescribeMultipleYearsFactor(BPIndex2,'BPIndex_YR',InpReturnHorizonYears,'ReturnHorizonYears',Describe2)) #describes over all the InputYears for this factor
 Describe2 = pd.DataFrame(Functions.DescribeMultipleYearsFactor(SIZEIndex2,'SIZEIndex_YR',InpReturnHorizonYears,'ReturnHorizonYears',Describe2))
 Describe2 = pd.DataFrame(Functions.DescribeMultipleYearsFactor(MarketPremium2,'MarketPremium_YR',InpReturnHorizonYears,'ReturnHorizonYears',Describe2))
 Describe2 = pd.DataFrame(Functions.DescribeMultipleYearsFactor(MarketReturn2,'MarketReturn_YR',InpReturnHorizonYears,'ReturnHorizonYears',Describe2))
 Describe2 = pd.DataFrame(Functions.DescribeMultipleYearsFactor(RiskFreeReturn,'RiskFreeReturn_YR',InpReturnHorizonYears,'ReturnHorizonYears',Describe2))
-Describe2 = pd.DataFrame(Functions.DescribeMultipleYearsFactor(PriceLogReturn2,'PriceLogReturn_YR',InpReturnHorizonYears,'ReturnHorizonYears',Describe2))
+Describe2 = pd.DataFrame(Functions.DescribeMultipleYearsFactor(tmpPriceLogReturn,'PriceLogReturn_YR',InpReturnHorizonYears,'ReturnHorizonYears',Describe2))
 Describe2.to_excel(ExportDir + 'Descriptives_OutlierAdjusted.xlsx', sheet_name='Input')
+del tmpBP, tmpSIZE, tmpPriceLogReturn
 
 #Run Descriptives over different time horizons - describe, scatterplots, correlation matrix
 InpReturnHorizonYears = pd.DataFrame([1,2,3,4,5])
 InputYears = InpReturnHorizonYears
 OutputSet2 = Dataset2[['Year','FirmID','BP','SIZE','BBBEE_Rank_Clean']]
+OutputSet2 = OutputSet2.dropna()
 RegressionOutputSimple2 = {}
 RegressionOutputNormal2 = {}
 
 for ii in range(InputYears.shape[0]): #see https://lectures.quantecon.org/py/ols.html
-    tmpOutput = pd.merge(Dataset2[['Year','FirmID','BP','SIZE','BBBEE_Rank_Clean']],BPIndex2[['Year',str('BPIndex_YR'+ str(InputYears[0][ii]))]],on='Year',how='left')
+    tmpOutput = pd.merge(OutputSet2[['Year','FirmID','BP','SIZE','BBBEE_Rank_Clean']],BPIndex2[['Year',str('BPIndex_YR'+ str(InputYears[0][ii]))]],on='Year',how='left')
     tmpOutput['BBBEE_Rank'] = tmpOutput['BBBEE_Rank_Clean']
     tmpOutput = tmpOutput.drop('BBBEE_Rank_Clean', axis=1)
     tmpOutput = pd.merge(tmpOutput,SIZEIndex2[['Year',str('SIZEIndex_YR'+ str(InputYears[0][ii]))]],on='Year',how='left')
@@ -440,6 +451,7 @@ for ii in range(InputYears.shape[0]): #see https://lectures.quantecon.org/py/ols
     tmpOutput = pd.merge(tmpOutput,RiskFreeReturn[['Year',str('RiskFreeReturn_YR'+ str(InputYears[0][ii]))]],on='Year',how='left')
     tmpOutput = pd.merge(tmpOutput,PriceLogReturn2[['Year','FirmID',str('PriceLogReturn_YR'+ str(InputYears[0][ii]))]],on=['Year','FirmID'],how='left')
     tmpOutput = pd.merge(tmpOutput,SectorDummy,on=['Year','FirmID'],how='left')
+    tmpOutput = tmpOutput.drop_duplicates()
     
     #correlation matrix
     tmpCorrelationMatrix = pd.DataFrame(tmpOutput.corr())
@@ -477,4 +489,3 @@ for ii in range(InputYears.shape[0]): #see https://lectures.quantecon.org/py/ols
     
 Functions.Regression5YearOutput(RegressionOutputSimple2,ExportDir,'OLS_Summary_OutlierAdjusted' ) # Output Regression results Simple
 Functions.Regression5YearOutput(RegressionOutputNormal2,ExportDir,'OLS_Summary_OutlierAdjusted' ) # Output Regression results Simple
-"""
