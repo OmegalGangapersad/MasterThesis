@@ -47,6 +47,8 @@
                 - Cleaned code
             20190505:
                 - Added comparison to JSE sector
+            20190506:
+                - Removed all rows with no BBBEE value in dataset1 before describe1
 """
 
 ##START SCRIPT
@@ -247,6 +249,7 @@ SectorDummy = SectorDummy.drop(['DS_SECTORID'], axis=1)
 
 #Finalize Variables
 Dataset1 = Dataset1.loc[(Dataset1['Year']>=BBBEEStartYear)] #finalize Dataset1
+Dataset1 = Dataset1.loc[(np.isnan(np.array(Dataset1['BBBEE_Rank_Clean']))==False)]#remove all rows with no BBBEE value
 SectorDummy = SectorDummy.loc[(SectorDummy['Year']>=BBBEEStartYear)] #finalize SectorDummy
 BPIndex = BPIndex.loc[(BPIndex['Year']>=BBBEEStartYear)] #finalize BPIndex
 SIZEIndex = SIZEIndex.loc[(SIZEIndex['Year']>=BBBEEStartYear)] #finalize BPIndex
@@ -474,3 +477,4 @@ for ii in range(InputYears.shape[0]): #see https://lectures.quantecon.org/py/ols
     
 Functions.Regression5YearOutput(RegressionOutputSimple2,ExportDir,'OLS_Summary_OutlierAdjusted' ) # Output Regression results Simple
 Functions.Regression5YearOutput(RegressionOutputNormal2,ExportDir,'OLS_Summary_OutlierAdjusted' ) # Output Regression results Simple
+"""
