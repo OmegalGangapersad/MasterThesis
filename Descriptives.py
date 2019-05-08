@@ -53,6 +53,7 @@
             20190508:
                 - Changed Simple to MF (Merwe Ferreira model)
                 - Added E2P factor to MF
+                - Removed Marketpremium and Riskfree rate from MF
 """
 
 ##START SCRIPT
@@ -310,7 +311,7 @@ for ii in range(InputYears.shape[0]): #see https://lectures.quantecon.org/py/ols
                    
     #Define Y and X and standardize X column names
     tmpY = tmpOutput[[str('PriceLogReturn_YR'+ str(InputYears[0][ii]))]]    
-    tmpX1 = tmpOutput.drop(['Year','FirmID',str('BPIndex_YR'+ str(InputYears[0][ii])),str('SIZEIndex_YR'+ str(InputYears[0][ii])),str('PriceLogReturn_YR'+ str(InputYears[0][ii]))], axis=1)
+    tmpX1 = tmpOutput.drop(['Year','FirmID',str('BPIndex_YR'+ str(InputYears[0][ii])),str('SIZEIndex_YR'+ str(InputYears[0][ii])),str('PriceLogReturn_YR'+ str(InputYears[0][ii])),str('MarketPremium_YR'+ str(InputYears[0][ii])),str('RiskFreeReturn_YR'+ str(InputYears[0][ii]))], axis=1)
     tmpX1 = Functions.OLSStandardizeXCol(tmpX1)   
     tmpX1 = sm.add_constant(tmpX1)
     tmpX2 = tmpOutput.drop(['Year','FirmID','BP','SIZE','E2P',str('PriceLogReturn_YR'+ str(InputYears[0][ii]))], axis=1)
@@ -472,8 +473,8 @@ for ii in range(InputYears.shape[0]): #see https://lectures.quantecon.org/py/ols
     del tmpXColumns,tmpYColumn
                    
     #Define Y and X and standardize X column names
-    tmpY = tmpOutput[[str('PriceLogReturn_YR'+ str(InputYears[0][ii]))]]    
-    tmpX1 = tmpOutput.drop(['Year','FirmID',str('BPIndex_YR'+ str(InputYears[0][ii])),str('SIZEIndex_YR'+ str(InputYears[0][ii])),str('PriceLogReturn_YR'+ str(InputYears[0][ii]))], axis=1)
+    tmpY = tmpOutput[[str('PriceLogReturn_YR'+ str(InputYears[0][ii]))]]  
+    tmpX1 = tmpOutput.drop(['Year','FirmID',str('BPIndex_YR'+ str(InputYears[0][ii])),str('SIZEIndex_YR'+ str(InputYears[0][ii])),str('PriceLogReturn_YR'+ str(InputYears[0][ii])),str('MarketPremium_YR'+ str(InputYears[0][ii])),str('RiskFreeReturn_YR'+ str(InputYears[0][ii]))], axis=1)    
     tmpX1 = Functions.OLSStandardizeXCol(tmpX1)   
     tmpX1 = sm.add_constant(tmpX1)
     tmpX2 = tmpOutput.drop(['Year','FirmID','BP','SIZE','E2P',str('PriceLogReturn_YR'+ str(InputYears[0][ii]))], axis=1)
