@@ -28,7 +28,9 @@
                 - Replaced SECID with FirmID 
                 - Replaced MV with SIZE 
             20190505:
-                - Added JSE (constituents)                        
+                - Added JSE (constituents)
+            20190508:
+                - Added Earnings to Price (E2P)                        
 """
 ##START SCRIPT
 import os
@@ -36,8 +38,8 @@ import pandas as pd
 import Functions
 import datetime
 
-def RawDataExcelToPython(ScriptName,ImportDirectory,FilenameBBBEE,FilenamePRICE,FilenameBVPS,FilenameSIZE,FilenameYLD,FilenameFIRM,SheetGeneral,SheetFIRMDS,SheetFIRMBBBEEDS,FilenameSECTOR,FilenameJSE):    
-    global RawDataBBBEE, RawDataPRICE, RawDataBVPS, RawDataSIZE, RawDataYLD, RawDataFIRMDS, RawDataFIRMBBBEEDS, RawDataSECTOR, RawDataJSE
+def RawDataExcelToPython(ScriptName,ImportDirectory,FilenameBBBEE,FilenamePRICE,FilenameBVPS,FilenameSIZE,FilenameYLD,FilenameFIRM,SheetGeneral,SheetFIRMDS,SheetFIRMBBBEEDS,FilenameSECTOR,FilenameJSE,FilenameE2P):    
+    global RawDataBBBEE, RawDataPRICE, RawDataBVPS, RawDataSIZE, RawDataYLD, RawDataFIRMDS, RawDataFIRMBBBEEDS, RawDataSECTOR, RawDataJSE, RawDataE2P
     Functions.LogScript(ScriptName,datetime.datetime.now(),'RawDataExcelToPython: RawDataBBBEE')
     RawDataBBBEE = pd.read_excel(ImportDirectory + FilenameBBBEE['Value'].iloc[0],SheetGeneral)
     Functions.LogScript(ScriptName,datetime.datetime.now(),'RawDataExcelToPython: RawDataPRICE')
@@ -56,9 +58,11 @@ def RawDataExcelToPython(ScriptName,ImportDirectory,FilenameBBBEE,FilenamePRICE,
     RawDataSECTOR = pd.read_excel(ImportDirectory + FilenameSECTOR['Value'].iloc[0],SheetGeneral)
     Functions.LogScript(ScriptName,datetime.datetime.now(),'RawDataExcelToPython: RawDataJSE')
     RawDataJSE = pd.read_excel(ImportDirectory + FilenameJSE['Value'].iloc[0],SheetGeneral)
-    return RawDataBBBEE, RawDataPRICE, RawDataBVPS, RawDataSIZE, RawDataYLD, RawDataFIRMDS, RawDataFIRMBBBEEDS, RawDataSECTOR, RawDataJSE
+    Functions.LogScript(ScriptName,datetime.datetime.now(),'RawDataExcelToPython: RawDataE2P')
+    RawDataE2P = pd.read_excel(ImportDirectory + FilenameE2P['Value'].iloc[0],SheetGeneral)
+    return RawDataBBBEE, RawDataPRICE, RawDataBVPS, RawDataSIZE, RawDataYLD, RawDataFIRMDS, RawDataFIRMBBBEEDS, RawDataSECTOR, RawDataJSE, RawDataE2P
 
-def DownloadRawData(ScriptName,ImportDirectory,Settings,FilenameBBBEE,FilenamePRICE,FilenameBVPS,FilenameSIZE,FilenameYLD,FilenameFIRM, FilenameSECTOR,FilenameJSE) :
+def DownloadRawData(ScriptName,ImportDirectory,Settings,FilenameBBBEE,FilenamePRICE,FilenameBVPS,FilenameSIZE,FilenameYLD,FilenameFIRM, FilenameSECTOR,FilenameJSE,FilenameE2P) :
     IDBBBEE = pd.DataFrame(Settings[Settings['Parameter'] == 'FilenameBBBEE']['Comment'])
     IDPRICE = pd.DataFrame(Settings[Settings['Parameter'] == 'FilenamePRICE']['Comment'])
     IDBVPS = pd.DataFrame(Settings[Settings['Parameter'] == 'FilenameBVPS']['Comment'])
@@ -67,6 +71,7 @@ def DownloadRawData(ScriptName,ImportDirectory,Settings,FilenameBBBEE,FilenamePR
     IDFIRM = pd.DataFrame(Settings[Settings['Parameter'] == 'FilenameFIRM']['Comment'])
     IDSECTOR = pd.DataFrame(Settings[Settings['Parameter'] == 'FilenameSECTOR']['Comment'])
     IDJSE = pd.DataFrame(Settings[Settings['Parameter'] == 'FilenameJSE']['Comment'])
+    IDE2P = pd.DataFrame(Settings[Settings['Parameter'] == 'FilenameE2P']['Comment'])
     Functions.LogScript(ScriptName,datetime.datetime.now(),'Download: RawDataBBBEE')
     Functions.download_file_from_google_drive(IDBBBEE['Comment'].iloc[0], ImportDirectory + FilenameBBBEE['Value'].iloc[0])
     Functions.LogScript(ScriptName,datetime.datetime.now(),'Download: RawDataPRICE')
@@ -83,7 +88,8 @@ def DownloadRawData(ScriptName,ImportDirectory,Settings,FilenameBBBEE,FilenamePR
     Functions.download_file_from_google_drive(IDSECTOR['Comment'].iloc[0], ImportDirectory + FilenameSECTOR['Value'].iloc[0])    
     Functions.LogScript(ScriptName,datetime.datetime.now(),'Download: RawDataJSE')
     Functions.download_file_from_google_drive(IDJSE['Comment'].iloc[0], ImportDirectory + FilenameJSE['Value'].iloc[0])    
-    
+    Functions.LogScript(ScriptName,datetime.datetime.now(),'Download: RawDataE2P')
+    Functions.download_file_from_google_drive(IDE2P['Comment'].iloc[0], ImportDirectory + FilenameE2P['Value'].iloc[0])    
 ##START SCRIPT
 tmpScriptName = os.path.basename(__file__)
 tmpStartTimeScript = datetime.datetime.now()
@@ -99,6 +105,7 @@ tmpFilenameYLD = pd.DataFrame(tmpSettings[tmpSettings['Parameter'] == 'FilenameY
 tmpFilenameFIRM = pd.DataFrame(tmpSettings[tmpSettings['Parameter'] == 'FilenameFIRM']['Value'])
 tmpFilenameSECTOR = pd.DataFrame(tmpSettings[tmpSettings['Parameter'] == 'FilenameSECTOR']['Value'])
 tmpFilenameJSE = pd.DataFrame(tmpSettings[tmpSettings['Parameter'] == 'FilenameJSE']['Value'])
+tmpFilenameE2P = pd.DataFrame(tmpSettings[tmpSettings['Parameter'] == 'FilenameE2P']['Value'])
 
 tmpSheetGeneral = 'Output'
 tmpSheetFIRMDS = 'Unique_RIC_ISIN_Mapping' #RIC retrieved data
@@ -106,11 +113,11 @@ tmpSheetFIRMBBBEEDS = 'SourceName_RIC_Mapping' #BBBEE name RIC mapping
 
 ##READ RAWDATA
 try:    
-    RawDataExcelToPython(tmpScriptName,tmpImportDirectory,tmpFilenameBBBEE,tmpFilenamePRICE,tmpFilenameBVPS,tmpFilenameSIZE,tmpFilenameYLD,tmpFilenameFIRM,tmpSheetGeneral,tmpSheetFIRMDS,tmpSheetFIRMBBBEEDS,tmpFilenameSECTOR, tmpFilenameJSE)
+    RawDataExcelToPython(tmpScriptName,tmpImportDirectory,tmpFilenameBBBEE,tmpFilenamePRICE,tmpFilenameBVPS,tmpFilenameSIZE,tmpFilenameYLD,tmpFilenameFIRM,tmpSheetGeneral,tmpSheetFIRMDS,tmpSheetFIRMBBBEEDS,tmpFilenameSECTOR, tmpFilenameJSE, tmpFilenameE2P)
 except:
-    DownloadRawData(tmpScriptName,tmpImportDirectory,tmpSettings,tmpFilenameBBBEE,tmpFilenamePRICE,tmpFilenameBVPS,tmpFilenameSIZE,tmpFilenameYLD,tmpFilenameFIRM,tmpFilenameSECTOR,tmpFilenameJSE)
-    RawDataExcelToPython(tmpScriptName,tmpImportDirectory,tmpFilenameBBBEE,tmpFilenamePRICE,tmpFilenameBVPS,tmpFilenameSIZE,tmpFilenameYLD,tmpFilenameFIRM,tmpSheetGeneral,tmpSheetFIRMDS,tmpSheetFIRMBBBEEDS,tmpFilenameSECTOR,tmpFilenameJSE)
+    DownloadRawData(tmpScriptName,tmpImportDirectory,tmpSettings,tmpFilenameBBBEE,tmpFilenamePRICE,tmpFilenameBVPS,tmpFilenameSIZE,tmpFilenameYLD,tmpFilenameFIRM,tmpFilenameSECTOR,tmpFilenameJSE,tmpFilenameE2P)
+    RawDataExcelToPython(tmpScriptName,tmpImportDirectory,tmpFilenameBBBEE,tmpFilenamePRICE,tmpFilenameBVPS,tmpFilenameSIZE,tmpFilenameYLD,tmpFilenameFIRM,tmpSheetGeneral,tmpSheetFIRMDS,tmpSheetFIRMBBBEEDS,tmpFilenameSECTOR,tmpFilenameJSE, tmpFilenameE2P)
 
 ##END SCRIPT
 Functions.LogScript(tmpScriptName,datetime.datetime.now(),'End Script, RunTime: '+ Functions.StrfTimeDelta(datetime.datetime.now()-tmpStartTimeScript))
-del tmpScriptName, tmpStartTimeScript, tmpMainDir, tmpImportDirectory, tmpSettings, tmpFilenameBBBEE, tmpFilenamePRICE, tmpFilenameBVPS, tmpFilenameSIZE, tmpFilenameYLD, tmpFilenameFIRM, tmpSheetGeneral, tmpSheetFIRMDS, tmpSheetFIRMBBBEEDS, tmpFilenameSECTOR, tmpFilenameJSE
+del tmpScriptName, tmpStartTimeScript, tmpMainDir, tmpImportDirectory, tmpSettings, tmpFilenameBBBEE, tmpFilenamePRICE, tmpFilenameBVPS, tmpFilenameSIZE, tmpFilenameYLD, tmpFilenameFIRM, tmpSheetGeneral, tmpSheetFIRMDS, tmpSheetFIRMBBBEEDS, tmpFilenameSECTOR, tmpFilenameJSE, tmpFilenameE2P
