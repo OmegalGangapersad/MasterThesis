@@ -50,6 +50,9 @@
             20190506:
                 - Remove #remove all rows with no BBBEE value
                 - Removed duplicates from regression analysis tmpOutput dataset
+            20190508:
+                - Changed Simple to MF (Merwe Ferreira model)
+                - Added E2P factor to MF
 """
 
 ##START SCRIPT
@@ -76,7 +79,7 @@ try:
     InputFilenameDS = 'DS.csv'
     InputFilenameFirm = 'Firm.csv'
     InputFilenameDates = 'Dates.csv'  
-    InputFilenameJSE = 'JSE.csv'  
+    InputFilenameJSE = 'JSE.csv'      
     tmpMainDir = os.path.dirname(os.path.realpath(__file__)) #working directory
     tmpImportDirectory = tmpMainDir + '\\Input\\StagingData\\' 
     StagingBBBEE = pd.read_csv(tmpImportDirectory + InputFilenameBBBEE)
@@ -261,10 +264,12 @@ PriceLogReturn = PriceLogReturn.loc[(PriceLogReturn['Year']>=BBBEEStartYear)]
 #Run Descriptives over different time horizons - describe
 tmpBP = Dataset1.loc[(np.isnan(np.array(Dataset1['BBBEE_Rank_Clean']))==False)]#remove all rows with no BBBEE value
 tmpSIZE = Dataset1.loc[(np.isnan(np.array(Dataset1['BBBEE_Rank_Clean']))==False)]#remove all rows with no BBBEE value
+tmpE2P = Dataset1.loc[(np.isnan(np.array(Dataset1['BBBEE_Rank_Clean']))==False)]#remove all rows with no BBBEE value
 tmpPriceLogReturn = PriceLogReturn.loc[(np.isnan(np.array(Dataset1['BBBEE_Rank_Clean']))==False)]
 Describe1 = pd.DataFrame(Dataset1['FirmID'].describe())
 Describe1 = Functions.DescribeExNaN(tmpBP,'BP',Describe1)
 Describe1 = Functions.DescribeExNaN(tmpSIZE,'SIZE',Describe1)
+Describe1 = Functions.DescribeExNaN(tmpE2P,'E2P',Describe1)
 Describe1 = pd.DataFrame(Functions.DescribeMultipleYearsFactor(BPIndex,'BPIndex_YR',InpReturnHorizonYears,'ReturnHorizonYears',Describe1)) #describes over all the InputYears for this factor
 Describe1 = pd.DataFrame(Functions.DescribeMultipleYearsFactor(SIZEIndex,'SIZEIndex_YR',InpReturnHorizonYears,'ReturnHorizonYears',Describe1))
 Describe1 = pd.DataFrame(Functions.DescribeMultipleYearsFactor(MarketPremium,'MarketPremium_YR',InpReturnHorizonYears,'ReturnHorizonYears',Describe1))
@@ -277,13 +282,13 @@ del tmpBP, tmpSIZE
 #Run Descriptives over different time horizons - describe, scatterplots, correlation matrix
 InpReturnHorizonYears = pd.DataFrame([1,2,3,4,5])
 InputYears = InpReturnHorizonYears
-OutputSet = Dataset1[['Year','FirmID','BP','SIZE','BBBEE_Rank_Clean']]
+OutputSet = Dataset1[['Year','FirmID','BP','SIZE','E2P','BBBEE_Rank_Clean']]
 OutputSet = OutputSet.dropna()
-RegressionOutputSimple = {}
-RegressionOutputNormal = {}
+RegressionOutputMF = {}
+RegressionOutputFF = {}
 
 for ii in range(InputYears.shape[0]): #see https://lectures.quantecon.org/py/ols.html
-    tmpOutput = pd.merge(OutputSet[['Year','FirmID','BP','SIZE','BBBEE_Rank_Clean']],BPIndex[['Year',str('BPIndex_YR'+ str(InputYears[0][ii]))]],on='Year',how='left')
+    tmpOutput = pd.merge(OutputSet[['Year','FirmID','BP','SIZE','E2P','BBBEE_Rank_Clean']],BPIndex[['Year',str('BPIndex_YR'+ str(InputYears[0][ii]))]],on='Year',how='left')
     tmpOutput['BBBEE_Rank'] = tmpOutput['BBBEE_Rank_Clean']
     tmpOutput = tmpOutput.drop('BBBEE_Rank_Clean', axis=1)
     tmpOutput = pd.merge(tmpOutput,SIZEIndex[['Year',str('SIZEIndex_YR'+ str(InputYears[0][ii]))]],on='Year',how='left')
@@ -298,7 +303,7 @@ for ii in range(InputYears.shape[0]): #see https://lectures.quantecon.org/py/ols
     tmpCorrelationMatrix.to_excel(ExportDir + 'CorrelationMatrix_YR' + str(InputYears[0][ii])+ '.xlsx', sheet_name='Input')
    
     #create scatterplots 
-    tmpXColumns = ['BP','SIZE','BBBEE_Rank',str('BPIndex_YR'+ str(InputYears[0][ii])),str('SIZEIndex_YR'+ str(InputYears[0][ii])),str('MarketPremium_YR'+ str(InputYears[0][ii])),str('RiskFreeReturn_YR'+ str(InputYears[0][ii]))]
+    tmpXColumns = ['BP','SIZE','E2P','BBBEE_Rank',str('BPIndex_YR'+ str(InputYears[0][ii])),str('SIZEIndex_YR'+ str(InputYears[0][ii])),str('MarketPremium_YR'+ str(InputYears[0][ii])),str('RiskFreeReturn_YR'+ str(InputYears[0][ii]))]
     tmpYColumn = str('PriceLogReturn_YR'+ str(InputYears[0][ii]))    
     Functions.PriceLogScatterplots(tmpXColumns,tmpYColumn,tmpOutput,ExportDir)    
     del tmpXColumns,tmpYColumn
@@ -306,30 +311,31 @@ for ii in range(InputYears.shape[0]): #see https://lectures.quantecon.org/py/ols
     #Define Y and X and standardize X column names
     tmpY = tmpOutput[[str('PriceLogReturn_YR'+ str(InputYears[0][ii]))]]    
     tmpX1 = tmpOutput.drop(['Year','FirmID',str('BPIndex_YR'+ str(InputYears[0][ii])),str('SIZEIndex_YR'+ str(InputYears[0][ii])),str('PriceLogReturn_YR'+ str(InputYears[0][ii]))], axis=1)
-    tmpX1 = Functions.OLSStandardizeXCol(tmpX1)    
-    tmpX2 = tmpOutput.drop(['Year','FirmID','BP','SIZE',str('PriceLogReturn_YR'+ str(InputYears[0][ii]))], axis=1)
+    tmpX1 = Functions.OLSStandardizeXCol(tmpX1)   
+    tmpX1 = sm.add_constant(tmpX1)
+    tmpX2 = tmpOutput.drop(['Year','FirmID','BP','SIZE','E2P',str('PriceLogReturn_YR'+ str(InputYears[0][ii]))], axis=1)
     tmpX2 = Functions.OLSStandardizeXCol(tmpX2)    
     
     #Run Regression over different time horizons - simple bp, size, bpIndex, sizeIndex and     
-    tmpOLSSimpleFF = sm.OLS(tmpY,tmpX1, missing='drop')
-    tmpOLSSimpleFFResults = tmpOLSSimpleFF.fit()
-    tmpKey = str('SimpleFF' + str(InputYears[0][ii]))   # https://stackoverflow.com/questions/5036700/how-can-you-dynamically-create-variables-via-a-while-loop 
-    tmpValue = tmpOLSSimpleFFResults    
-    RegressionOutputSimple[tmpKey] = tmpValue    
+    tmpOLSMF = sm.OLS(tmpY,tmpX1, missing='drop') # MF = Merwe and Ferreira model
+    tmpOLSMFResults = tmpOLSMF.fit()
+    tmpKey = str('MF' + str(InputYears[0][ii]))   # https://stackoverflow.com/questions/5036700/how-can-you-dynamically-create-variables-via-a-while-loop 
+    tmpValue = tmpOLSMFResults    
+    RegressionOutputMF[tmpKey] = tmpValue    
     del tmpKey, tmpValue
         
-    tmpOLSNormalFF = sm.OLS(tmpY,tmpX2, missing='drop')
-    tmpOLSNormalFFResults = tmpOLSNormalFF.fit()  
-    tmpKey1 = str('NormalFF' + str(InputYears[0][ii]))   # https://stackoverflow.com/questions/5036700/how-can-you-dynamically-create-variables-via-a-while-loop 
-    tmpValue1 = tmpOLSNormalFFResults    
-    RegressionOutputNormal[tmpKey1] = tmpValue1  
+    tmpOLSFF = sm.OLS(tmpY,tmpX2, missing='drop') # MF = Fama and French
+    tmpOLSFFResults = tmpOLSFF.fit()  
+    tmpKey1 = str('FF' + str(InputYears[0][ii]))   # https://stackoverflow.com/questions/5036700/how-can-you-dynamically-create-variables-via-a-while-loop 
+    tmpValue1 = tmpOLSFFResults    
+    RegressionOutputFF[tmpKey1] = tmpValue1  
     del tmpKey1, tmpValue1
             
-    del tmpOutput,tmpCorrelationMatrix,tmpX1,tmpX2,tmpY,tmpOLSSimpleFF,tmpOLSSimpleFFResults,tmpOLSNormalFF,tmpOLSNormalFFResults
+    del tmpOutput,tmpCorrelationMatrix,tmpX1,tmpX2,tmpY,tmpOLSMF,tmpOLSMFResults,tmpOLSFF,tmpOLSFFResults
  
 del ii
-Functions.Regression5YearOutput(RegressionOutputSimple,ExportDir,'OLS_Summary_' ) # Output Regression results Simple
-Functions.Regression5YearOutput(RegressionOutputNormal,ExportDir,'OLS_Summary_' ) # Output Regression results Simple
+Functions.Regression5YearOutput(RegressionOutputMF,ExportDir,'OLS_Summary_' ) # Output Regression results Merwe and Ferreira
+Functions.Regression5YearOutput(RegressionOutputFF,ExportDir,'OLS_Summary_' ) # Output Regression results Fama French
 
 #Adjust for outliers - Dataset2 - RiskFreeReturn is not adjusted 
 Dataset2 = Dataset1 #Already contains clean BBBEE
@@ -421,10 +427,12 @@ for ii in range(InpReturnHorizonYears.shape[0]):
 #Run Descriptives over different time horizons - describe
 tmpBP = Dataset2.loc[(np.isnan(np.array(Dataset1['BBBEE_Rank_Clean']))==False)]#remove all rows with no BBBEE value
 tmpSIZE = Dataset2.loc[(np.isnan(np.array(Dataset1['BBBEE_Rank_Clean']))==False)]#remove all rows with no BBBEE value
+tmpE2P = Dataset2.loc[(np.isnan(np.array(Dataset1['BBBEE_Rank_Clean']))==False)]#remove all rows with no BBBEE value
 tmpPriceLogReturn = PriceLogReturn2.loc[(np.isnan(np.array(Dataset1['BBBEE_Rank_Clean']))==False)]
 Describe2 = pd.DataFrame(Dataset2['FirmID'].describe())
 Describe2 = Functions.DescribeExNaN(tmpBP,'BP',Describe2)
 Describe2 = Functions.DescribeExNaN(tmpSIZE,'SIZE',Describe2)
+Describe2 = Functions.DescribeExNaN(tmpE2P,'E2P',Describe2)
 Describe2 = pd.DataFrame(Functions.DescribeMultipleYearsFactor(BPIndex2,'BPIndex_YR',InpReturnHorizonYears,'ReturnHorizonYears',Describe2)) #describes over all the InputYears for this factor
 Describe2 = pd.DataFrame(Functions.DescribeMultipleYearsFactor(SIZEIndex2,'SIZEIndex_YR',InpReturnHorizonYears,'ReturnHorizonYears',Describe2))
 Describe2 = pd.DataFrame(Functions.DescribeMultipleYearsFactor(MarketPremium2,'MarketPremium_YR',InpReturnHorizonYears,'ReturnHorizonYears',Describe2))
@@ -437,13 +445,13 @@ del tmpBP, tmpSIZE, tmpPriceLogReturn
 #Run Descriptives over different time horizons - describe, scatterplots, correlation matrix
 InpReturnHorizonYears = pd.DataFrame([1,2,3,4,5])
 InputYears = InpReturnHorizonYears
-OutputSet2 = Dataset2[['Year','FirmID','BP','SIZE','BBBEE_Rank_Clean']]
+OutputSet2 = Dataset2[['Year','FirmID','BP','SIZE','E2P','BBBEE_Rank_Clean']]
 OutputSet2 = OutputSet2.dropna()
-RegressionOutputSimple2 = {}
-RegressionOutputNormal2 = {}
+RegressionOutputMF2 = {}
+RegressionOutputFF2 = {}
 
 for ii in range(InputYears.shape[0]): #see https://lectures.quantecon.org/py/ols.html
-    tmpOutput = pd.merge(OutputSet2[['Year','FirmID','BP','SIZE','BBBEE_Rank_Clean']],BPIndex2[['Year',str('BPIndex_YR'+ str(InputYears[0][ii]))]],on='Year',how='left')
+    tmpOutput = pd.merge(OutputSet2[['Year','FirmID','BP','SIZE','E2P','BBBEE_Rank_Clean']],BPIndex2[['Year',str('BPIndex_YR'+ str(InputYears[0][ii]))]],on='Year',how='left')
     tmpOutput['BBBEE_Rank'] = tmpOutput['BBBEE_Rank_Clean']
     tmpOutput = tmpOutput.drop('BBBEE_Rank_Clean', axis=1)
     tmpOutput = pd.merge(tmpOutput,SIZEIndex2[['Year',str('SIZEIndex_YR'+ str(InputYears[0][ii]))]],on='Year',how='left')
@@ -458,7 +466,7 @@ for ii in range(InputYears.shape[0]): #see https://lectures.quantecon.org/py/ols
     tmpCorrelationMatrix.to_excel(ExportDir + 'CorrelationMatrix_OutlierAdjusted_YR' + str(InputYears[0][ii])+ '.xlsx', sheet_name='Input')
    
     #create scatterplots 
-    tmpXColumns = ['BP','SIZE','BBBEE_Rank',str('BPIndex_YR'+ str(InputYears[0][ii])),str('SIZEIndex_YR'+ str(InputYears[0][ii])),str('MarketPremium_YR'+ str(InputYears[0][ii])),str('RiskFreeReturn_YR'+ str(InputYears[0][ii]))]
+    tmpXColumns = ['BP','SIZE','E2P','BBBEE_Rank',str('BPIndex_YR'+ str(InputYears[0][ii])),str('SIZEIndex_YR'+ str(InputYears[0][ii])),str('MarketPremium_YR'+ str(InputYears[0][ii])),str('RiskFreeReturn_YR'+ str(InputYears[0][ii]))]
     tmpYColumn = str('PriceLogReturn_YR'+ str(InputYears[0][ii]))    
     Functions.PriceLogScatterplots(tmpXColumns,tmpYColumn,tmpOutput,ExportDir)    
     del tmpXColumns,tmpYColumn
@@ -466,26 +474,27 @@ for ii in range(InputYears.shape[0]): #see https://lectures.quantecon.org/py/ols
     #Define Y and X and standardize X column names
     tmpY = tmpOutput[[str('PriceLogReturn_YR'+ str(InputYears[0][ii]))]]    
     tmpX1 = tmpOutput.drop(['Year','FirmID',str('BPIndex_YR'+ str(InputYears[0][ii])),str('SIZEIndex_YR'+ str(InputYears[0][ii])),str('PriceLogReturn_YR'+ str(InputYears[0][ii]))], axis=1)
-    tmpX1 = Functions.OLSStandardizeXCol(tmpX1)    
-    tmpX2 = tmpOutput.drop(['Year','FirmID','BP','SIZE',str('PriceLogReturn_YR'+ str(InputYears[0][ii]))], axis=1)
+    tmpX1 = Functions.OLSStandardizeXCol(tmpX1)   
+    tmpX1 = sm.add_constant(tmpX1)
+    tmpX2 = tmpOutput.drop(['Year','FirmID','BP','SIZE','E2P',str('PriceLogReturn_YR'+ str(InputYears[0][ii]))], axis=1)
     tmpX2 = Functions.OLSStandardizeXCol(tmpX2)    
     
     #Run Regression over different time horizons - simple bp, size, bpIndex, sizeIndex and     
-    tmpOLSSimpleFF = sm.OLS(tmpY,tmpX1, missing='drop')
-    tmpOLSSimpleFFResults = tmpOLSSimpleFF.fit()
-    tmpKey = str('SimpleFF' + str(InputYears[0][ii]))   # https://stackoverflow.com/questions/5036700/how-can-you-dynamically-create-variables-via-a-while-loop 
-    tmpValue = tmpOLSSimpleFFResults    
-    RegressionOutputSimple2[tmpKey] = tmpValue    
+    tmpOLSMF = sm.OLS(tmpY,tmpX1, missing='drop') # MF = Merwe and Ferreira model
+    tmpOLSMFResults = tmpOLSMF.fit()
+    tmpKey = str('MF' + str(InputYears[0][ii]))   # https://stackoverflow.com/questions/5036700/how-can-you-dynamically-create-variables-via-a-while-loop 
+    tmpValue = tmpOLSMFResults    
+    RegressionOutputMF2[tmpKey] = tmpValue    
     del tmpKey, tmpValue
         
-    tmpOLSNormalFF = sm.OLS(tmpY,tmpX2, missing='drop')
-    tmpOLSNormalFFResults = tmpOLSNormalFF.fit()  
-    tmpKey1 = str('NormalFF' + str(InputYears[0][ii]))   # https://stackoverflow.com/questions/5036700/how-can-you-dynamically-create-variables-via-a-while-loop 
-    tmpValue1 = tmpOLSNormalFFResults    
-    RegressionOutputNormal2[tmpKey1] = tmpValue1  
+    tmpOLSFF = sm.OLS(tmpY,tmpX2, missing='drop') # MF = Fama and French
+    tmpOLSFFResults = tmpOLSFF.fit()  
+    tmpKey1 = str('FF' + str(InputYears[0][ii]))   # https://stackoverflow.com/questions/5036700/how-can-you-dynamically-create-variables-via-a-while-loop 
+    tmpValue1 = tmpOLSFFResults    
+    RegressionOutputFF2[tmpKey1] = tmpValue1  
     del tmpKey1, tmpValue1
             
-    del tmpOutput,tmpCorrelationMatrix,tmpX1,tmpX2,tmpY,tmpOLSSimpleFF,tmpOLSSimpleFFResults,tmpOLSNormalFF,tmpOLSNormalFFResults
+    del tmpOutput,tmpCorrelationMatrix,tmpX1,tmpX2,tmpY,tmpOLSMF,tmpOLSMFResults,tmpOLSFF,tmpOLSFFResults
     
-Functions.Regression5YearOutput(RegressionOutputSimple2,ExportDir,'OLS_Summary_OutlierAdjusted' ) # Output Regression results Simple
-Functions.Regression5YearOutput(RegressionOutputNormal2,ExportDir,'OLS_Summary_OutlierAdjusted' ) # Output Regression results Simple
+Functions.Regression5YearOutput(RegressionOutputMF2,ExportDir,'OLS_Summary_OutlierAdjusted' ) # Output Regression results Merwe and Ferreira
+Functions.Regression5YearOutput(RegressionOutputFF2,ExportDir,'OLS_Summary_OutlierAdjusted' ) # Output Regression results Fama French
