@@ -54,6 +54,7 @@
                 - Changed Simple to MF (Merwe Ferreira model)
                 - Added E2P factor to MF
                 - Removed Marketpremium and Riskfree rate from MF
+                - Adjusted Size index to small minus big, instead of big minus small
 """
 
 ##START SCRIPT
@@ -191,7 +192,7 @@ for ii in range(InpReturnHorizonYears.shape[0]): #Create returns, BPIndex, SIZEI
     tmpSIZETop = pd.DataFrame(np.nanmean(tmpSIZETop, axis=1))
     tmpSIZEBottom = pd.DataFrame(np.array(SIZEBottomDummy)*np.array(tmpDF1))
     tmpSIZEBottom = pd.DataFrame(np.nanmean(tmpSIZEBottom, axis=1))
-    SIZEIndex['SIZEIndex_YR'+str(tmpReturnHorizonYears)] = tmpSIZETop - tmpSIZEBottom
+    SIZEIndex['SIZEIndex_YR'+str(tmpReturnHorizonYears)] = tmpSIZETop - tmpSIZEBottom #Fama French Size is small minus big market cap
     del tmpDF, tmpDF1, tmpDF2, tmpBPTop, tmpBPBottom, tmpSIZETop, tmpSIZEBottom
 
 del ii
@@ -422,7 +423,7 @@ for ii in range(InpReturnHorizonYears.shape[0]):
     tmpSIZETop = pd.DataFrame(np.nanmean(tmpSIZETop, axis=1))
     tmpSIZEBottom = pd.DataFrame(np.array(SIZEBottomDummy2)*np.array(tmpDF))
     tmpSIZEBottom = pd.DataFrame(np.nanmean(tmpSIZEBottom, axis=1))
-    SIZEIndex2['SIZEIndex_YR'+str(tmpReturnHorizonYears)] = tmpSIZETop - tmpSIZEBottom
+    SIZEIndex2['SIZEIndex_YR'+str(tmpReturnHorizonYears)] = tmpSIZETop - tmpSIZEBottom #Fama French Size is small minus big market cap
     del tmpDF, tmpBPTop, tmpBPBottom, tmpSIZETop, tmpSIZEBottom
 
 #Run Descriptives over different time horizons - describe
