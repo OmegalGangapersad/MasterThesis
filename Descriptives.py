@@ -57,6 +57,7 @@
                 - Adjusted Size index to small minus big, instead of big minus small
             20190512:
                 - Changed Export directory to allow for different lags
+                - Removed values exactly zero, error as result of true false dummies
 """
 
 ##START SCRIPT
@@ -75,8 +76,8 @@ tmpScriptName = os.path.basename(__file__)
 Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Start Script')
 
 # DEFINE DF CRITERIA - CAN BE LOOPED OVER
-BBBEEMonth = 4 #define month where BBBEE is released - April is value from van der Merwe paper
-BBBEELag = 2 #define months Lag from BBBEE release Month - you can adjust this value to check when market reacts
+BBBEEMonth = 4 #define month where BBBEE is released - April is value from van der Merwe and Ferreira paper
+BBBEELag = 4 #define months Lag from BBBEE release Month - you can adjust this value to check when market reacts - Merwe indicates 4 months
 MonthYearEnd = BBBEEMonth + BBBEELag #define month for year end to calculate
 BBBEEStartYear = 2004
 
@@ -117,10 +118,10 @@ ObsSectorYearCount = Dataset0.pivot_table(['BBBEE_Rank','Price'], index='Year', 
 
 try:
     ObsVariableYear.to_excel(ExportDir + 'ObsVariableYear.xlsx', sheet_name='Input')
-except: 
-    os.mkdir(ExportDir) #create directory in case it does not exists
-    ObsVariableYear.to_excel(ExportDir + 'ObsVariableYear.xlsx', sheet_name='Input')
-    
+except:     
+    os.mkdir(ExportDir) # only create sub directory
+        
+ObsVariableYear.to_excel(ExportDir + 'ObsVariableYear.xlsx', sheet_name='Input')    
 ObsSectorYearCount.to_excel(ExportDir + 'ObsSectorYearCount.xlsx', sheet_name='Input') #work in excel to create %percentages
 
 # Create Dataset1 which has returns, market premium and riskfree rate starting from BBBEEStartYear
@@ -189,6 +190,8 @@ for ii in range(InpReturnHorizonYears.shape[0]): #Create returns, BPIndex, SIZEI
     tmpDF2 = pd.merge(tmpDF2,tmpYear,on='YearIndex',how='left')
     tmpDF2 = tmpDF2[[str('PriceLogReturn_YR'+str(tmpReturnHorizonYears)),'FirmID','Year']]
     PriceLogReturn = pd.merge(PriceLogReturn,tmpDF2,on=['Year','FirmID'],how='left')    
+    tmpDF1 = np.array(tmpDF1)
+    tmpDF1[tmpDF1 == 0] = np.nan #remove values that are exactly 0, must be an error
     MarketReturn['MarketReturn_YR'+str(tmpReturnHorizonYears)] = np.nanmean(np.array(tmpDF1), axis=1) #calculate market return over time horizon    
     MarketPremium['MarketPremium_YR'+str(tmpReturnHorizonYears)] = MarketReturn['MarketReturn_YR'+str(tmpReturnHorizonYears)] - RiskFreeReturn['RiskFreeReturn_YR'+str(tmpReturnHorizonYears)]
     tmpBPTop = pd.DataFrame(np.array(BPTopDummy)*np.array(tmpDF1))
@@ -218,6 +221,26 @@ Dataset1.loc[(Dataset1['BBBEE_Rank_Clean'] > MinBBBEECount),'BBBEE_Rank_Clean'] 
 tmpCleanRank2 = Dataset1.groupby('Year')['BBBEE_Rank_Clean'].rank(ascending=False) #make BBBEE Rank higher the better - to improve interpretability in regressions
 Dataset1['BBBEE_Rank_Clean'] = tmpCleanRank2
 del tmpCleanRank, tmpCleanRank2
+
+#bootstrap method as inspired by Mehta and Ward (p94)
+BBBEEBottomCount = MinBBBEECount * 0.3 # take top 30% of 60 observations similar to Fama French, recall that ranking is flipped in rank.(ascending=False)
+BBBEETopCount = MinBBBEECount - BBBEEBottomCount # take bottom 30% of 60 observations similar to Fama French
+BBBEEMatrix = Dataset1.pivot_table('BBBEE_Rank_Clean', index='Year', columns='FirmID')
+BBBEEBottomDummy = ([BBBEEMatrix <= BBBEEBottomCount]) 
+BBBEETopDummy = ([BBBEEMatrix >= BBBEETopCount]) 
+BBBEEBottomDummy = BBBEEBottomDummy[0]
+BBBEETopDummy = BBBEETopDummy[0]
+BBBEETopDummy = BBBEETopDummy.reset_index(drop=True)
+BootstrapReturnMatrix = PriceLogReturn.pivot_table('PriceLogReturn_YR1', index='Year', columns='FirmID')
+BBBEETopReturn = np.array(BBBEETopDummy)*np.array(BootstrapReturnMatrix)
+BBBEETopReturn[BBBEETopReturn == 0] = np.nan
+BBBEETopReturn = np.nanmean(BBBEETopReturn, axis=1)
+BBBEEBottomReturn = np.array(BBBEEBottomDummy)*np.array(BootstrapReturnMatrix)
+BBBEEBottomReturn[BBBEEBottomReturn == 0] = np.nan
+BBBEEBottomReturn = np.nanmean(BBBEEBottomReturn, axis=1)
+BBBEEAllDummy = BBBEEMatrix.reset_index(drop=True)
+BBBEEAllReturn = pd.DataFrame(np.array(BBBEEAllDummy)*np.array(BootstrapReturnMatrix))
+BBBEEAllReturn[BBBEEBottomReturn == 0] = np.nan
 
 #Add industry dummy
 tmpSECTORID = StagingFirm[['DS_SECTORNAME','DS_SECTORID']].drop_duplicates()
@@ -295,57 +318,93 @@ InputYears = InpReturnHorizonYears
 OutputSet = Dataset1[['Year','FirmID','BP','SIZE','E2P','BBBEE_Rank_Clean']]
 OutputSet = OutputSet.dropna()
 RegressionOutputMF = {}
+RegressionOutputMF20042007 = {}
+RegressionOutputMF20072013 = {}
+RegressionOutputMF20132018 = {}
 RegressionOutputFF = {}
+RegressionOutputFF20042007 = {}
+RegressionOutputFF20072013 = {}
+RegressionOutputFF20132018 = {}
 
 for ii in range(InputYears.shape[0]): #see https://lectures.quantecon.org/py/ols.html
-    tmpOutput = pd.merge(OutputSet[['Year','FirmID','BP','SIZE','E2P','BBBEE_Rank_Clean']],BPIndex[['Year',str('BPIndex_YR'+ str(InputYears[0][ii]))]],on='Year',how='left')
-    tmpOutput['BBBEE_Rank'] = tmpOutput['BBBEE_Rank_Clean']
-    tmpOutput = tmpOutput.drop('BBBEE_Rank_Clean', axis=1)
-    tmpOutput = pd.merge(tmpOutput,SIZEIndex[['Year',str('SIZEIndex_YR'+ str(InputYears[0][ii]))]],on='Year',how='left')
-    tmpOutput = pd.merge(tmpOutput,MarketPremium[['Year',str('MarketPremium_YR'+ str(InputYears[0][ii]))]],on='Year',how='left')
-    tmpOutput = pd.merge(tmpOutput,RiskFreeReturn[['Year',str('RiskFreeReturn_YR'+ str(InputYears[0][ii]))]],on='Year',how='left')
-    tmpOutput = pd.merge(tmpOutput,PriceLogReturn[['Year','FirmID',str('PriceLogReturn_YR'+ str(InputYears[0][ii]))]],on=['Year','FirmID'],how='left')
-    tmpOutput = pd.merge(tmpOutput,SectorDummy,on=['Year','FirmID'],how='left')
-    tmpOutput = tmpOutput.drop_duplicates()
-    
-    #correlation matrix
-    tmpCorrelationMatrix = pd.DataFrame(tmpOutput.corr())
-    tmpCorrelationMatrix.to_excel(ExportDir + 'CorrelationMatrix_YR' + str(InputYears[0][ii])+ '.xlsx', sheet_name='Input')
-   
-    #create scatterplots 
-    tmpXColumns = ['BP','SIZE','E2P','BBBEE_Rank',str('BPIndex_YR'+ str(InputYears[0][ii])),str('SIZEIndex_YR'+ str(InputYears[0][ii])),str('MarketPremium_YR'+ str(InputYears[0][ii])),str('RiskFreeReturn_YR'+ str(InputYears[0][ii]))]
-    tmpYColumn = str('PriceLogReturn_YR'+ str(InputYears[0][ii]))    
-    Functions.PriceLogScatterplots(tmpXColumns,tmpYColumn,tmpOutput,ExportDir)    
-    del tmpXColumns,tmpYColumn
-                   
-    #Define Y and X and standardize X column names
-    tmpY = tmpOutput[[str('PriceLogReturn_YR'+ str(InputYears[0][ii]))]]    
-    tmpX1 = tmpOutput.drop(['Year','FirmID',str('BPIndex_YR'+ str(InputYears[0][ii])),str('SIZEIndex_YR'+ str(InputYears[0][ii])),str('PriceLogReturn_YR'+ str(InputYears[0][ii])),str('MarketPremium_YR'+ str(InputYears[0][ii])),str('RiskFreeReturn_YR'+ str(InputYears[0][ii]))], axis=1)
-    tmpX1 = Functions.OLSStandardizeXCol(tmpX1)   
-    tmpX1 = sm.add_constant(tmpX1)
-    tmpX2 = tmpOutput.drop(['Year','FirmID','BP','SIZE','E2P',str('PriceLogReturn_YR'+ str(InputYears[0][ii]))], axis=1)
-    tmpX2 = Functions.OLSStandardizeXCol(tmpX2)    
-    
-    #Run Regression over different time horizons - simple bp, size, bpIndex, sizeIndex and     
-    tmpOLSMF = sm.OLS(tmpY,tmpX1, missing='drop') # MF = Merwe and Ferreira model
-    tmpOLSMFResults = tmpOLSMF.fit()
-    tmpKey = str('MF' + str(InputYears[0][ii]))   # https://stackoverflow.com/questions/5036700/how-can-you-dynamically-create-variables-via-a-while-loop 
-    tmpValue = tmpOLSMFResults    
-    RegressionOutputMF[tmpKey] = tmpValue    
-    del tmpKey, tmpValue
-        
-    tmpOLSFF = sm.OLS(tmpY,tmpX2, missing='drop') # MF = Fama and French
-    tmpOLSFFResults = tmpOLSFF.fit()  
-    tmpKey1 = str('FF' + str(InputYears[0][ii]))   # https://stackoverflow.com/questions/5036700/how-can-you-dynamically-create-variables-via-a-while-loop 
-    tmpValue1 = tmpOLSFFResults    
-    RegressionOutputFF[tmpKey1] = tmpValue1  
-    del tmpKey1, tmpValue1
-            
-    del tmpOutput,tmpCorrelationMatrix,tmpX1,tmpX2,tmpY,tmpOLSMF,tmpOLSMFResults,tmpOLSFF,tmpOLSFFResults
- 
+    tmpOutputAll = pd.merge(OutputSet[['Year','FirmID','BP','SIZE','E2P','BBBEE_Rank_Clean']],BPIndex[['Year',str('BPIndex_YR'+ str(InputYears[0][ii]))]],on='Year',how='left')
+    tmpOutputAll['BBBEE_Rank'] = tmpOutputAll['BBBEE_Rank_Clean']
+    tmpOutputAll = tmpOutputAll.drop('BBBEE_Rank_Clean', axis=1)
+    tmpOutputAll = pd.merge(tmpOutputAll,SIZEIndex[['Year',str('SIZEIndex_YR'+ str(InputYears[0][ii]))]],on='Year',how='left')
+    tmpOutputAll = pd.merge(tmpOutputAll,MarketPremium[['Year',str('MarketPremium_YR'+ str(InputYears[0][ii]))]],on='Year',how='left')
+    tmpOutputAll = pd.merge(tmpOutputAll,RiskFreeReturn[['Year',str('RiskFreeReturn_YR'+ str(InputYears[0][ii]))]],on='Year',how='left')
+    tmpOutputAll = pd.merge(tmpOutputAll,PriceLogReturn[['Year','FirmID',str('PriceLogReturn_YR'+ str(InputYears[0][ii]))]],on=['Year','FirmID'],how='left')
+    tmpOutputAll = pd.merge(tmpOutputAll,SectorDummy,on=['Year','FirmID'],how='left')
+    tmpOutputAll = tmpOutputAll.drop_duplicates()
+    for xx in range(4):                
+        if xx == 0:
+             tmpOutput = tmpOutputAll
+             #correlation matrix
+             tmpCorrelationMatrix = pd.DataFrame(tmpOutput.corr())
+             tmpCorrelationMatrix.to_excel(ExportDir + 'CorrelationMatrix_YR' + str(InputYears[0][ii])+ '.xlsx', sheet_name='Input')       
+             #create scatterplots 
+             tmpXColumns = ['BP','SIZE','E2P','BBBEE_Rank',str('BPIndex_YR'+ str(InputYears[0][ii])),str('SIZEIndex_YR'+ str(InputYears[0][ii])),str('MarketPremium_YR'+ str(InputYears[0][ii])),str('RiskFreeReturn_YR'+ str(InputYears[0][ii]))]
+             tmpYColumns = str('PriceLogReturn_YR'+ str(InputYears[0][ii]))    
+             Functions.PriceLogScatterplots(tmpXColumns,tmpYColumns,tmpOutput,ExportDir)    
+             del tmpXColumns,tmpYColumns,tmpCorrelationMatrix
+             print(xx)
+        elif xx == 1:
+             tmpOutput = tmpOutputAll.loc[(tmpOutputAll['Year']<2007)]   
+             print(xx)
+        elif xx == 2:
+             tmpOutput = tmpOutputAll.loc[(tmpOutputAll['Year']>=2007) & (tmpOutputAll['Year']<2013)]   
+             print(xx)
+        elif xx == 3:
+             tmpOutput = tmpOutputAll.loc[(tmpOutputAll['Year']>=2013)]   
+             print(xx)
+             
+        #Define Y and X and standardize X column names
+        tmpY = tmpOutput[[str('PriceLogReturn_YR'+ str(InputYears[0][ii]))]]    
+        tmpX1 = tmpOutput.drop(['Year','FirmID',str('BPIndex_YR'+ str(InputYears[0][ii])),str('SIZEIndex_YR'+ str(InputYears[0][ii])),str('PriceLogReturn_YR'+ str(InputYears[0][ii])),str('MarketPremium_YR'+ str(InputYears[0][ii])),str('RiskFreeReturn_YR'+ str(InputYears[0][ii]))], axis=1)
+        tmpX1 = Functions.OLSStandardizeXCol(tmpX1)   
+        tmpX1 = sm.add_constant(tmpX1)
+        tmpX2 = tmpOutput.drop(['Year','FirmID','BP','SIZE','E2P',str('PriceLogReturn_YR'+ str(InputYears[0][ii]))], axis=1)
+        tmpX2 = Functions.OLSStandardizeXCol(tmpX2)            
+        #Run Regression over different time horizons - simple bp, size, bpIndex, sizeIndex and     
+        tmpOLSMF = sm.OLS(tmpY,tmpX1, missing='drop') # MF = Merwe and Ferreira model
+        tmpOLSMFResults = tmpOLSMF.fit()
+        tmpKey = str('MF' + str(InputYears[0][ii]))   # https://stackoverflow.com/questions/5036700/how-can-you-dynamically-create-variables-via-a-while-loop 
+        tmpValue = tmpOLSMFResults            
+        if xx == 0:
+             RegressionOutputMF[tmpKey] = tmpValue    
+        elif xx == 1:
+             RegressionOutputMF20042007[tmpKey] = tmpValue    
+        elif xx == 2:
+             RegressionOutputMF20072013[tmpKey] = tmpValue    
+        elif xx == 3:     
+            RegressionOutputMF20132018[tmpKey] = tmpValue                
+        del tmpKey, tmpValue            
+        tmpOLSFF = sm.OLS(tmpY,tmpX2, missing='drop') # MF = Fama and French
+        tmpOLSFFResults = tmpOLSFF.fit()  
+        tmpKey1 = str('FF' + str(InputYears[0][ii]))   # https://stackoverflow.com/questions/5036700/how-can-you-dynamically-create-variables-via-a-while-loop 
+        tmpValue1 = tmpOLSFFResults   
+        if xx == 0:
+             RegressionOutputFF[tmpKey1] = tmpValue1    
+        elif xx == 1:
+             RegressionOutputFF20042007[tmpKey1] = tmpValue1    
+        elif xx == 2:
+             RegressionOutputFF20072013[tmpKey1] = tmpValue1    
+        elif xx == 3:     
+            RegressionOutputFF20132018[tmpKey1] = tmpValue1                
+        del tmpKey1, tmpValue1                            
+        del tmpOutput,tmpX1,tmpX2,tmpY,tmpOLSMF,tmpOLSMFResults,tmpOLSFF,tmpOLSFFResults
+    del tmpOutputAll
+
 del ii
 Functions.Regression5YearOutput(RegressionOutputMF,ExportDir,'OLS_Summary_' ) # Output Regression results Merwe and Ferreira
+Functions.Regression5YearOutput(RegressionOutputMF20042007,ExportDir,'OLS_Summary_2004_2007_' ) # Output Regression results Merwe and Ferreira
+Functions.Regression5YearOutput(RegressionOutputMF20072013,ExportDir,'OLS_Summary_2007_2013_' ) # Output Regression results Merwe and Ferreira
+Functions.Regression5YearOutput(RegressionOutputMF20132018,ExportDir,'OLS_Summary_2013_2018_' ) # Output Regression results Merwe and Ferreira
+
 Functions.Regression5YearOutput(RegressionOutputFF,ExportDir,'OLS_Summary_' ) # Output Regression results Fama French
+Functions.Regression5YearOutput(RegressionOutputFF20042007,ExportDir,'OLS_Summary_2004_2007_' ) # Output Regression results Merwe and Ferreira
+Functions.Regression5YearOutput(RegressionOutputFF20072013,ExportDir,'OLS_Summary_2007_2013_' ) # Output Regression results Merwe and Ferreira
+Functions.Regression5YearOutput(RegressionOutputFF20132018,ExportDir,'OLS_Summary_2013_2018_' ) # Output Regression results Merwe and Ferreira
 
 #Adjust for outliers - Dataset2 - RiskFreeReturn is not adjusted 
 Dataset2 = Dataset1 #Already contains clean BBBEE
@@ -359,7 +418,7 @@ Dataset2 = Dataset2.reset_index(drop=True)
 tmpColumns = ['BP','SIZE']
 for ii in range(len(tmpColumns)): 
     inpColumn = str(tmpColumns[ii])
-    tmpDF1 = Functions.CapOutliers(Dataset2,inpColumn)
+    tmpDF1 = Functions.CapOutliers(Dataset2,inpColumn, ExportDir)
     Dataset2 = Dataset2.drop([inpColumn], axis=1)
     Dataset2 = pd.merge(Dataset2,tmpDF1,on=['Year','FirmID'],how='left')
 del tmpColumns, ii
@@ -372,7 +431,7 @@ tmpColumns = tmpColumns.loc[(tmpColumns[0] != 'FirmID')]
 tmpColumns = list(tmpColumns[0])
 for ii in range(len(tmpColumns)): 
     inpColumn = str(tmpColumns[ii])
-    tmpDF1 = Functions.CapOutliers(PriceLogReturn,inpColumn)
+    tmpDF1 = Functions.CapOutliers(PriceLogReturn,inpColumn, ExportDir)
     PriceLogReturn2 = pd.merge(PriceLogReturn2,tmpDF1,on=['Year','FirmID'],how='left')
 del tmpColumns, ii
 
@@ -420,6 +479,8 @@ for ii in range(InpReturnHorizonYears.shape[0]):
     tmpReturnHorizonYears = InpReturnHorizonYears['ReturnHorizonYears'][ii]
     tmpPriceLogReturnColumn = str('PriceLogReturn_YR' + str(tmpReturnHorizonYears))
     tmpDF = PriceLogReturn2.pivot_table(tmpPriceLogReturnColumn, index='Year', columns='FirmID')
+    tmpDF = np.array(tmpDF1)
+    tmpDF[tmpDF == 0] = np.nan
     MarketReturn2['MarketReturn_YR'+str(tmpReturnHorizonYears)] = np.nanmean(np.array(tmpDF), axis=1) #calculate market return over time horizon    
     MarketPremium2['MarketPremium_YR'+str(tmpReturnHorizonYears)] = MarketReturn2['MarketReturn_YR'+str(tmpReturnHorizonYears)] - RiskFreeReturn['RiskFreeReturn_YR'+str(tmpReturnHorizonYears)]
     tmpBPTop = pd.DataFrame(np.array(BPTopDummy2)*np.array(tmpDF))
@@ -508,3 +569,4 @@ for ii in range(InputYears.shape[0]): #see https://lectures.quantecon.org/py/ols
     
 Functions.Regression5YearOutput(RegressionOutputMF2,ExportDir,'OLS_Summary_OutlierAdjusted' ) # Output Regression results Merwe and Ferreira
 Functions.Regression5YearOutput(RegressionOutputFF2,ExportDir,'OLS_Summary_OutlierAdjusted' ) # Output Regression results Fama French
+"""
