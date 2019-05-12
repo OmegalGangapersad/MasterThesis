@@ -32,6 +32,9 @@
                    - Cleaned code
                20190505: 
                    - Created SimpleLineChart function
+               20190512: 
+                   - Created Bootstrap function
+                   - Created BootstrapLineChart
 """ 
 import numpy as np
 def LogScript(ScriptName, Time, LogComment):
@@ -222,7 +225,29 @@ def SimpleLineChart(inpXColumn,inpYColumn,inpDataFrame,ExpDir,XLabel,YLabel):
     plt.xlabel(YLabel)
     plt.ylabel(XLabel)
     plt.show()
-    fig.savefig(ExpDir + 'ScatterPlot_'+ inpYColumn +  '_' + inpXColumn + '.png')   
+    fig.savefig(ExpDir + 'Plot_'+ inpYColumn +  '_' + inpXColumn + '.png')   
+
+def BootstrapLineChart(inpDataFrame,ExpDir,inpTitle):    
+    # this function assumes that the first and second column are the confidence intervals and 3rd and 4th the BBBEE columns    
+    import matplotlib.pyplot as plt        
+    inpXColumn = 'Year'
+    XLabel = inpXColumn
+    YLabel = 'Cumulative Share price return'
+    tmpYColumns = inpDataFrame.columns
+    tmpYColumns = tmpYColumns.drop(['Year'])
+    Markers = [',',',',',',',']
+    LineStyles = ['-','-','-','--']
+    Colors = ['grey','grey','k','k']
+    fig = plt.figure()
+    plt.rc('font', family='serif')
+    for ii in range(len(tmpYColumns)):
+        inpYColumn = str(tmpYColumns[ii])        
+        plt.plot(inpDataFrame[inpXColumn],inpDataFrame[inpYColumn], color=Colors[ii],linestyle=LineStyles[ii],marker=Markers[ii])
+        plt.ylabel(YLabel)    
+    plt.xlabel(XLabel)
+    plt.legend(prop={'size': 8})
+    plt.show()
+    fig.savefig(ExpDir + inpTitle + '.png')    
     
 def PriceLogScatterplots(inpXColumns,inpYColumn,inpDataFrame,ExpDir):
     import pandas as pd
