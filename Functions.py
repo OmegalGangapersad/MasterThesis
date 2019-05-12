@@ -33,7 +33,7 @@
                20190505: 
                    - Created SimpleLineChart function
 """ 
-
+import numpy as np
 def LogScript(ScriptName, Time, LogComment):
     import datetime
     tmpTimeStamp = Time.strftime('%d-%b-%Y %H:%M:%S') 
@@ -128,12 +128,10 @@ def save_response_content(response, destination):
                 f.write(chunk)
     #source: https://stackoverflow.com/questions/38511444/python-download-files-from-google-drive-using-url
 
-def CapOutliers(InputDataFrame, InputColumn):
+def CapOutliers(InputDataFrame, InputColumn, InputExportDir):
     import seaborn as sns
     import numpy as np
-    import os    
-    MainDir = os.path.dirname(os.path.realpath(__file__)) #working directory
-    ExportDir = MainDir + '\\Output\\Descriptives\\' 
+    ExportDir = InputExportDir #MainDir + '\\Output\\Descriptives\\' 
     
     tmpDF = InputDataFrame[['Year','FirmID',InputColumn]]
     tmpDF = tmpDF.dropna()
@@ -237,4 +235,41 @@ def PriceLogScatterplots(inpXColumns,inpYColumn,inpDataFrame,ExpDir):
         plt.xlabel(tmpXColumn)
         plt.ylabel(inpYColumn)
         #plt.show()
-        fig.savefig(ExpDir + 'ScatterPlot_'+ inpYColumn +  '_' + tmpXColumn + '.png')          
+        fig.savefig(ExpDir + 'ScatterPlot_'+ inpYColumn +  '_' + tmpXColumn + '.png') 
+
+def bootstrap(dataset, confidence=0.95, iterations=10000,
+              sample_size=1.0, statistic=np.mean):
+    """
+    Bootstrap the confidence intervals for a given sample of a population
+    and a statistic.
+    Args:
+        dataset: A list of values, each a sample from an unknown population
+        confidence: The confidence value (a float between 0 and 1.0)
+        iterations: The number of iterations of resampling to perform
+        sample_size: The sample size for each of the resampled (0 to 1.0
+                     for 0 to 100% of the original data size)
+        statistic: The statistic to use. This must be a function that accepts
+                   a list of values and returns a single value.
+    Returns:
+        Returns the upper and lower values of the confidence interval.
+    """
+    import numpy as np
+    from sklearn.utils import resample
+    
+    stats = list()
+    n_size = int(len(dataset) * sample_size)
+
+    for _ in range(iterations):
+        # Sample (with replacement) from the given dataset
+        sample = resample(dataset, n_samples=n_size)
+        # Calculate user-defined statistic and store it
+        stat = statistic(sample)
+        stats.append(stat)
+
+    # Sort the array of per-sample statistics and cut off ends
+    ostats = sorted(stats)
+    lval = np.percentile(ostats, ((1 - confidence) / 2) * 100)
+    uval = np.percentile(ostats, (confidence + ((1 - confidence) / 2)) * 100)
+
+    return (lval, uval)    
+    # source: https://github.com/mvanga/pybootstrap/blob/master/pybootstrap/__init__.py     
