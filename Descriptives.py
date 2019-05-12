@@ -58,6 +58,7 @@
             20190512:
                 - Changed Export directory to allow for different lags
                 - Removed values exactly zero, error as result of true false dummies
+                - Started bootstrap inspired by Mehta and Ward
 """
 
 ##START SCRIPT
@@ -235,13 +236,37 @@ BootstrapReturnMatrix = PriceLogReturn.pivot_table('PriceLogReturn_YR1', index='
 BBBEETopReturn = np.array(BBBEETopDummy)*np.array(BootstrapReturnMatrix)
 BBBEETopReturn[BBBEETopReturn == 0] = np.nan
 BBBEETopReturn = np.nanmean(BBBEETopReturn, axis=1)
+BBBEETopReturn = pd.DataFrame(BBBEETopReturn)
+BBBEETopReturn.columns = ['BBBEE_Top']
 BBBEEBottomReturn = np.array(BBBEEBottomDummy)*np.array(BootstrapReturnMatrix)
 BBBEEBottomReturn[BBBEEBottomReturn == 0] = np.nan
 BBBEEBottomReturn = np.nanmean(BBBEEBottomReturn, axis=1)
+BBBEEBottomReturn = pd.DataFrame(BBBEEBottomReturn)
+BBBEEBottomReturn.columns = ['BBBEE_Bottom']
 BBBEEAllDummy = BBBEEMatrix.reset_index(drop=True)
+BBBEEAllDummy[BBBEEAllDummy > 0] = 1
 BBBEEAllReturn = pd.DataFrame(np.array(BBBEEAllDummy)*np.array(BootstrapReturnMatrix))
-BBBEEAllReturn[BBBEEBottomReturn == 0] = np.nan
 
+BootstrapAll = np.zeros(shape=(BBBEEAllReturn.shape[0],2))
+for ii in range(BootstrapAll.shape[0]):
+    try:
+        tmpDataset = BBBEEAllReturn.iloc[ii]    
+        tmpDataset = [tmpDataset.dropna()][0]
+        tmpLower, tmpUpper = Functions.bootstrap(tmpDataset, confidence=0.95, iterations=10000, sample_size=1, statistic=np.mean)        
+    except:
+        tmpLower = 0
+        tmpUpper = 0
+    BootstrapAll[ii,0] = tmpLower
+    BootstrapAll[ii,1] = tmpUpper
+    del tmpDataset, tmpLower, tmpUpper
+BootstrapAll = pd.DataFrame(BootstrapAll)
+BootstrapAll.columns = ['5%_ConfidenceInterval','95%_ConfidenceInterval']
+BootstrapAll['BBBEE_Top'] = BBBEETopReturn['BBBEE_Top']
+BootstrapAll['BBBEE_Bottom'] = BBBEEBottomReturn['BBBEE_Bottom']
+# compound returns, add year, plot run same analysis for industrials
+
+
+"""
 #Add industry dummy
 tmpSECTORID = StagingFirm[['DS_SECTORNAME','DS_SECTORID']].drop_duplicates()
 tmpSECTORID = tmpSECTORID.reset_index(drop=True)
