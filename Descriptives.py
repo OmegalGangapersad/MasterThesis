@@ -59,6 +59,7 @@
                 - Changed Export directory to allow for different lags
                 - Removed values exactly zero, error as result of true false dummies
                 - Started bootstrap inspired by Mehta and Ward
+                - Finished bootstrap 
 """
 
 ##START SCRIPT
@@ -223,50 +224,6 @@ tmpCleanRank2 = Dataset1.groupby('Year')['BBBEE_Rank_Clean'].rank(ascending=Fals
 Dataset1['BBBEE_Rank_Clean'] = tmpCleanRank2
 del tmpCleanRank, tmpCleanRank2
 
-#bootstrap method as inspired by Mehta and Ward (p94)
-BBBEEBottomCount = MinBBBEECount * 0.3 # take top 30% of 60 observations similar to Fama French, recall that ranking is flipped in rank.(ascending=False)
-BBBEETopCount = MinBBBEECount - BBBEEBottomCount # take bottom 30% of 60 observations similar to Fama French
-BBBEEMatrix = Dataset1.pivot_table('BBBEE_Rank_Clean', index='Year', columns='FirmID')
-BBBEEBottomDummy = ([BBBEEMatrix <= BBBEEBottomCount]) 
-BBBEETopDummy = ([BBBEEMatrix >= BBBEETopCount]) 
-BBBEEBottomDummy = BBBEEBottomDummy[0]
-BBBEETopDummy = BBBEETopDummy[0]
-BBBEETopDummy = BBBEETopDummy.reset_index(drop=True)
-BootstrapReturnMatrix = PriceLogReturn.pivot_table('PriceLogReturn_YR1', index='Year', columns='FirmID')
-BBBEETopReturn = np.array(BBBEETopDummy)*np.array(BootstrapReturnMatrix)
-BBBEETopReturn[BBBEETopReturn == 0] = np.nan
-BBBEETopReturn = np.nanmean(BBBEETopReturn, axis=1)
-BBBEETopReturn = pd.DataFrame(BBBEETopReturn)
-BBBEETopReturn.columns = ['BBBEE_Top']
-BBBEEBottomReturn = np.array(BBBEEBottomDummy)*np.array(BootstrapReturnMatrix)
-BBBEEBottomReturn[BBBEEBottomReturn == 0] = np.nan
-BBBEEBottomReturn = np.nanmean(BBBEEBottomReturn, axis=1)
-BBBEEBottomReturn = pd.DataFrame(BBBEEBottomReturn)
-BBBEEBottomReturn.columns = ['BBBEE_Bottom']
-BBBEEAllDummy = BBBEEMatrix.reset_index(drop=True)
-BBBEEAllDummy[BBBEEAllDummy > 0] = 1
-BBBEEAllReturn = pd.DataFrame(np.array(BBBEEAllDummy)*np.array(BootstrapReturnMatrix))
-
-BootstrapAll = np.zeros(shape=(BBBEEAllReturn.shape[0],2))
-for ii in range(BootstrapAll.shape[0]):
-    try:
-        tmpDataset = BBBEEAllReturn.iloc[ii]    
-        tmpDataset = [tmpDataset.dropna()][0]
-        tmpLower, tmpUpper = Functions.bootstrap(tmpDataset, confidence=0.95, iterations=10000, sample_size=1, statistic=np.mean)        
-    except:
-        tmpLower = 0
-        tmpUpper = 0
-    BootstrapAll[ii,0] = tmpLower
-    BootstrapAll[ii,1] = tmpUpper
-    del tmpDataset, tmpLower, tmpUpper
-BootstrapAll = pd.DataFrame(BootstrapAll)
-BootstrapAll.columns = ['5%_ConfidenceInterval','95%_ConfidenceInterval']
-BootstrapAll['BBBEE_Top'] = BBBEETopReturn['BBBEE_Top']
-BootstrapAll['BBBEE_Bottom'] = BBBEEBottomReturn['BBBEE_Bottom']
-# compound returns, add year, plot run same analysis for industrials
-
-
-"""
 #Add industry dummy
 tmpSECTORID = StagingFirm[['DS_SECTORNAME','DS_SECTORID']].drop_duplicates()
 tmpSECTORID = tmpSECTORID.reset_index(drop=True)
@@ -276,7 +233,79 @@ for ii in range(tmpSECTORID.shape[0]): #create a dummy variable name for all DS_
     SectorDummy[str(tmpColumnName)] = np.zeros(shape=(SectorDummy.shape[0],1))
     SectorDummy.loc[(SectorDummy['DS_SECTORID'] == tmpSECTORID['DS_SECTORID'][ii]),str(tmpColumnName)] = 1
 
-#compare with JSE
+#bootstrap method as inspired by Mehta and Ward (p94) for the entire dataset and just for Industrial sector    
+tmpLoop = ['Industrials','All']
+for ii in range(len(tmpLoop)):
+    tmpDataset = Dataset1.loc[(Dataset1['Year']>=BBBEEStartYear),['Year','FirmID','BBBEE_Rank_Clean','DS_SECTORID']]
+    tmpDataset = tmpDataset.reset_index(drop=True)
+    tmpPriceLogReturn = PriceLogReturn.loc[(PriceLogReturn['Year']>=BBBEEStartYear),['Year','FirmID','PriceLogReturn_YR1']]
+    tmpDataset = pd.merge(tmpDataset,tmpPriceLogReturn,on=['Year','FirmID'],how='left')
+    del tmpPriceLogReturn
+    if tmpLoop[ii] == 'Industrials':
+        tmpIndustrialSectorID =  np.array(tmpSECTORID.loc[(tmpSECTORID['DS_SECTORNAME'] == 'Industrials'),'DS_SECTORID'])[0]
+        tmpDataset = tmpDataset.loc[(tmpDataset['DS_SECTORID'] == tmpIndustrialSectorID)] 
+        tmpDataset = tmpDataset.reset_index(drop=True)
+        tmpCleanRank = tmpDataset.groupby('Year')['BBBEE_Rank_Clean'].rank(ascending=True) #rerank BBBEE based on year 
+        tmpDataset['BBBEE_Rank_Clean'] = tmpCleanRank
+        tmpYearBBBEECount= tmpDataset[['BBBEE_Rank_Clean','Year']].groupby('Year').count()
+        tmpMinBBBEECount = round(tmpYearBBBEECount['BBBEE_Rank_Clean'].min(),-1)
+        tmpDataset.loc[(tmpDataset['BBBEE_Rank_Clean'] > tmpMinBBBEECount),'BBBEE_Rank_Clean'] = float('nan')
+        tmpTitle = 'Bootstrap_Industrials'
+    else:
+        tmpMinBBBEECount = MinBBBEECount
+        tmpTitle = 'Bootstrap_All'
+        
+    BBBEEBottomCount = tmpMinBBBEECount * 0.3 # take top 30% of 60 observations similar to Fama French, recall that ranking is flipped in rank.(ascending=False)
+    BBBEETopCount = tmpMinBBBEECount - BBBEEBottomCount # take bottom 30% of 60 observations similar to Fama French
+    BBBEEMatrix = tmpDataset.pivot_table('BBBEE_Rank_Clean', index='Year', columns='FirmID')
+    BBBEEMatrix = BBBEEMatrix.reset_index(drop=True)
+    BBBEEBottomDummy = ([BBBEEMatrix <= BBBEEBottomCount]) 
+    BBBEETopDummy = ([BBBEEMatrix >= BBBEETopCount]) 
+    BBBEEBottomDummy = BBBEEBottomDummy[0]
+    BBBEETopDummy = BBBEETopDummy[0]
+    BBBEETopDummy = BBBEETopDummy.reset_index(drop=True)
+    BootstrapReturnMatrix = tmpDataset.pivot_table('PriceLogReturn_YR1', index='Year', columns='FirmID')
+    BBBEETopReturn = np.array(BBBEETopDummy)*np.array(BootstrapReturnMatrix)
+    BBBEETopReturn[BBBEETopReturn == 0] = np.nan
+    BBBEETopReturn = np.nanmean(BBBEETopReturn, axis=1)
+    BBBEETopReturn = pd.DataFrame(BBBEETopReturn)
+    BBBEETopReturn.columns = ['BBBEE_Top']
+    BBBEETopReturn = BBBEETopReturn.fillna(0) #if no values for the year (2007 for industrials then 0)
+    BBBEEBottomReturn = np.array(BBBEEBottomDummy)*np.array(BootstrapReturnMatrix)
+    BBBEEBottomReturn[BBBEEBottomReturn == 0] = np.nan
+    BBBEEBottomReturn = np.nanmean(BBBEEBottomReturn, axis=1)
+    BBBEEBottomReturn = pd.DataFrame(BBBEEBottomReturn)
+    BBBEEBottomReturn.columns = ['BBBEE_Bottom']
+    BBBEEBottomReturn = BBBEEBottomReturn.fillna(0)
+    BBBEEAllDummy = BBBEEMatrix.reset_index(drop=True)
+    BBBEEAllDummy[BBBEEAllDummy > 0] = 1
+    BBBEEAllReturn = pd.DataFrame(np.array(BBBEEAllDummy)*np.array(BootstrapReturnMatrix))
+    
+    Bootstrap = np.zeros(shape=(BBBEEAllReturn.shape[0],2))
+    for jj in range(Bootstrap.shape[0]):
+        try:
+            tmpDatasetBootStrap = BBBEEAllReturn.iloc[jj]    
+            tmpDatasetBootStrap = [tmpDatasetBootStrap.dropna()][0]
+            tmpLower, tmpUpper = Functions.bootstrap(tmpDatasetBootStrap, confidence=0.95, iterations=10000, sample_size=1, statistic=np.mean)        
+        except:
+            tmpLower = 0
+            tmpUpper = 0
+        Bootstrap[jj,0] = tmpLower
+        Bootstrap[jj,1] = tmpUpper
+        del tmpDatasetBootStrap, tmpLower, tmpUpper
+    Bootstrap = pd.DataFrame(Bootstrap)
+    Bootstrap.columns = ['5%_ConfidenceInterval','95%_ConfidenceInterval']
+    Bootstrap['BBBEE_Top'] = BBBEETopReturn['BBBEE_Top']
+    Bootstrap['BBBEE_Bottom'] = BBBEEBottomReturn['BBBEE_Bottom']
+    BootstrapCum = (1+Bootstrap).cumprod() -1 # compound returns
+    tmpYearBootstrap = pd.DataFrame(index=BootstrapReturnMatrix.index)
+    tmpYearBootstrap = tmpYearBootstrap.reset_index()
+    BootstrapCum['Year'] = tmpYearBootstrap['Year']
+    Bootstrap['Year'] = tmpYearBootstrap['Year'] #year
+    Functions.BootstrapLineChart(BootstrapCum,ExportDir,tmpTitle)
+    del jj
+
+#compare with sector  bias with JSE
 tmpSectorDataset1 = Dataset1[['FirmID','Year','DS_SECTORID','BBBEE_Rank_Clean']] # Dataset1
 tmpSectorDataset1 = tmpSectorDataset1.dropna()
 tmpSectorDatasetPivot = tmpSectorDataset1.pivot_table('FirmID', index='Year', columns='DS_SECTORID', aggfunc='count')
@@ -372,16 +401,12 @@ for ii in range(InputYears.shape[0]): #see https://lectures.quantecon.org/py/ols
              tmpYColumns = str('PriceLogReturn_YR'+ str(InputYears[0][ii]))    
              Functions.PriceLogScatterplots(tmpXColumns,tmpYColumns,tmpOutput,ExportDir)    
              del tmpXColumns,tmpYColumns,tmpCorrelationMatrix
-             print(xx)
         elif xx == 1:
              tmpOutput = tmpOutputAll.loc[(tmpOutputAll['Year']<2007)]   
-             print(xx)
         elif xx == 2:
              tmpOutput = tmpOutputAll.loc[(tmpOutputAll['Year']>=2007) & (tmpOutputAll['Year']<2013)]   
-             print(xx)
         elif xx == 3:
              tmpOutput = tmpOutputAll.loc[(tmpOutputAll['Year']>=2013)]   
-             print(xx)
              
         #Define Y and X and standardize X column names
         tmpY = tmpOutput[[str('PriceLogReturn_YR'+ str(InputYears[0][ii]))]]    
@@ -503,9 +528,7 @@ BPBottomDummy2 = BPBottomDummy[BPBottomDummy.index>=BBBEEStartYear]
 for ii in range(InpReturnHorizonYears.shape[0]):
     tmpReturnHorizonYears = InpReturnHorizonYears['ReturnHorizonYears'][ii]
     tmpPriceLogReturnColumn = str('PriceLogReturn_YR' + str(tmpReturnHorizonYears))
-    tmpDF = PriceLogReturn2.pivot_table(tmpPriceLogReturnColumn, index='Year', columns='FirmID')
-    tmpDF = np.array(tmpDF1)
-    tmpDF[tmpDF == 0] = np.nan
+    tmpDF = PriceLogReturn2.pivot_table(tmpPriceLogReturnColumn, index='Year', columns='FirmID')    
     MarketReturn2['MarketReturn_YR'+str(tmpReturnHorizonYears)] = np.nanmean(np.array(tmpDF), axis=1) #calculate market return over time horizon    
     MarketPremium2['MarketPremium_YR'+str(tmpReturnHorizonYears)] = MarketReturn2['MarketReturn_YR'+str(tmpReturnHorizonYears)] - RiskFreeReturn['RiskFreeReturn_YR'+str(tmpReturnHorizonYears)]
     tmpBPTop = pd.DataFrame(np.array(BPTopDummy2)*np.array(tmpDF))
@@ -594,4 +617,3 @@ for ii in range(InputYears.shape[0]): #see https://lectures.quantecon.org/py/ols
     
 Functions.Regression5YearOutput(RegressionOutputMF2,ExportDir,'OLS_Summary_OutlierAdjusted' ) # Output Regression results Merwe and Ferreira
 Functions.Regression5YearOutput(RegressionOutputFF2,ExportDir,'OLS_Summary_OutlierAdjusted' ) # Output Regression results Fama French
-"""
