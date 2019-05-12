@@ -55,6 +55,8 @@
                 - Added E2P factor to MF
                 - Removed Marketpremium and Riskfree rate from MF
                 - Adjusted Size index to small minus big, instead of big minus small
+            20190512:
+                - Changed Export directory to allow for different lags
 """
 
 ##START SCRIPT
@@ -71,8 +73,15 @@ tmpScriptName = os.path.basename(__file__)
 tmpStartTimeScript = datetime.datetime.now()
 tmpScriptName = os.path.basename(__file__)
 Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Start Script')
+
+# DEFINE DF CRITERIA - CAN BE LOOPED OVER
+BBBEEMonth = 4 #define month where BBBEE is released - April is value from van der Merwe paper
+BBBEELag = 2 #define months Lag from BBBEE release Month - you can adjust this value to check when market reacts
+MonthYearEnd = BBBEEMonth + BBBEELag #define month for year end to calculate
+BBBEEStartYear = 2004
+
 MainDir = os.path.dirname(os.path.realpath(__file__)) #working directory
-ExportDir = MainDir + '\\Output\\Descriptives\\' 
+ExportDir = MainDir + '\\Output\\LagMonths_' + str(BBBEELag) + '\\'
 
 ##READ STAGING DATA
 Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Start STEP1: Read StagingData') 
@@ -92,13 +101,7 @@ try:
     del InputFilenameBBBEE, InputFilenameDS, InputFilenameFirm, InputFilenameDates, tmpMainDir, tmpImportDirectory
 except:
     import StagingData
-
-
 Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Start STEP2: Create working dataset called df') 
-# DEFINE DF CRITERIA - CAN BE LOOPED OVER
-BBBEEMonth = 4 #define month where BBBEE is released - April is value from van der Merwe paper
-BBBEELag = 4 #define months Lag from BBBEE release Month - you can adjust this value to check when market reacts
-MonthYearEnd = BBBEEMonth + BBBEELag #define month for year end to calculate
 
 # Create Dataset0 rawest data, grouped by year
 StagingDates.loc[(StagingDates['Month'] == BBBEEMonth) & (StagingDates['MonthEndDummy'] == 1),'BBBEEReleaseDateDummy'] = StagingDates.loc[(StagingDates['Month'] == BBBEEMonth) & (StagingDates['MonthEndDummy'] == 1),'Year'] #put year in BBBEEdummy to identify from where BBBEE scores run
@@ -111,11 +114,16 @@ Dataset0 = pd.merge(Dataset0,StagingBBBEE,on=['Year','FirmID'], how='left')
 
 ObsVariableYear = Dataset0.groupby('Year').count() #Check number of firms with BBBEE score/without BBBEE score per year
 ObsSectorYearCount = Dataset0.pivot_table(['BBBEE_Rank','Price'], index='Year', columns='DS_SECTORID', aggfunc='count') #Check number of firms per sector per year - compare with JSE All share Index - Price as proxy for all observations
-ObsVariableYear.to_excel(ExportDir + 'ObsVariableYear.xlsx', sheet_name='Input')
+
+try:
+    ObsVariableYear.to_excel(ExportDir + 'ObsVariableYear.xlsx', sheet_name='Input')
+except: 
+    os.mkdir(ExportDir) #create directory in case it does not exists
+    ObsVariableYear.to_excel(ExportDir + 'ObsVariableYear.xlsx', sheet_name='Input')
+    
 ObsSectorYearCount.to_excel(ExportDir + 'ObsSectorYearCount.xlsx', sheet_name='Input') #work in excel to create %percentages
 
 # Create Dataset1 which has returns, market premium and riskfree rate starting from BBBEEStartYear
-BBBEEStartYear = 2004
 Dataset1 = Dataset0.loc[(Dataset0['Year']>=(BBBEEStartYear-1))]
 PriceLogReturnMatrix = Dataset1.pivot_table('PriceLogReturnCum', index='Year', columns='FirmID')
 tmpYear = pd.DataFrame(PriceLogReturnMatrix.index.get_level_values(0))
