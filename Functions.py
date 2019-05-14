@@ -35,6 +35,8 @@
                20190512: 
                    - Created Bootstrap function
                    - Created BootstrapLineChart
+               20190514: 
+                   - Added output to LaTeX in Regression5YearOutput function
 """ 
 import numpy as np
 def LogScript(ScriptName, Time, LogComment):
@@ -205,8 +207,11 @@ def Regression5YearOutput(InpDict, ExpDir,InpTitlePrefix):
                                 model_names=['1','2','3','4','5'],
                                 info_dict={'N':lambda x: "{0:d}".format(int(x.nobs)),'R2':lambda x: "{:.2f}".format(x.rsquared)})
     results_table.add_title(str('OLS Regressions - ' +  tmpModelName))    
-    with open(ExpDir + InpTitlePrefix + tmpModelName + '.txt', 'w') as fh: #Output
+    with open(ExpDir + InpTitlePrefix + tmpModelName + '.txt', 'w') as fh: #Output text
         fh.write(results_table.as_text())
+    with open(ExpDir + InpTitlePrefix + tmpModelName + '.tex', 'w') as f: #Output latex
+        f.write(results_table.as_latex())
+
 
 def SimpleLineChart(inpXColumn,inpYColumn,inpDataFrame,ExpDir,XLabel,YLabel):    
     import matplotlib.pyplot as plt
