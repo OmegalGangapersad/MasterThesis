@@ -60,6 +60,8 @@
                 - Removed values exactly zero, error as result of true false dummies
                 - Started bootstrap inspired by Mehta and Ward
                 - Finished bootstrap 
+            20190515:
+                - Rewrote bootstrap to account for all sectors
 """
 
 ##START SCRIPT
@@ -234,76 +236,55 @@ for ii in range(tmpSECTORID.shape[0]): #create a dummy variable name for all DS_
     SectorDummy.loc[(SectorDummy['DS_SECTORID'] == tmpSECTORID['DS_SECTORID'][ii]),str(tmpColumnName)] = 1
 
 #bootstrap method as inspired by Mehta and Ward (p94) for the entire dataset and just for Industrial sector    
-tmpLoop = ['Industrials','All']
-for ii in range(len(tmpLoop)):
+tmpLoop = tmpSECTORID
+tmpLoop = tmpLoop.append(pd.Series(['All', 0], index=tmpLoop.columns), ignore_index=True) #https://thispointer.com/python-pandas-how-to-add-rows-in-a-dataframe-using-dataframe-append-loc-iloc/
+for ii in range(tmpLoop.shape[0]): #loop through sectors
     tmpDataset = Dataset1.loc[(Dataset1['Year']>=BBBEEStartYear),['Year','FirmID','BBBEE_Rank_Clean','DS_SECTORID']]
     tmpDataset = tmpDataset.reset_index(drop=True)
     tmpPriceLogReturn = PriceLogReturn.loc[(PriceLogReturn['Year']>=BBBEEStartYear),['Year','FirmID','PriceLogReturn_YR1']]
     tmpDataset = pd.merge(tmpDataset,tmpPriceLogReturn,on=['Year','FirmID'],how='left')
     del tmpPriceLogReturn
-    if tmpLoop[ii] == 'Industrials':
-        tmpIndustrialSectorID =  np.array(tmpSECTORID.loc[(tmpSECTORID['DS_SECTORNAME'] == 'Industrials'),'DS_SECTORID'])[0]
-        tmpDataset = tmpDataset.loc[(tmpDataset['DS_SECTORID'] == tmpIndustrialSectorID)] 
+    tmpSectorName = tmpLoop['DS_SECTORNAME'].iloc[ii]
+    tmpSectorID = tmpLoop['DS_SECTORID'].iloc[ii]
+    if tmpSectorName == 'All':
+        tmpTitle = 'Bootstrap_All'
+    else:
+        tmpDataset = tmpDataset.loc[(tmpDataset['DS_SECTORID'] == tmpSectorID)] 
         tmpDataset = tmpDataset.reset_index(drop=True)
         tmpCleanRank = tmpDataset.groupby('Year')['BBBEE_Rank_Clean'].rank(ascending=True) #rerank BBBEE based on year 
         tmpDataset['BBBEE_Rank_Clean'] = tmpCleanRank
-        tmpYearBBBEECount= tmpDataset[['BBBEE_Rank_Clean','Year']].groupby('Year').count()
-        tmpMinBBBEECount = round(tmpYearBBBEECount['BBBEE_Rank_Clean'].min(),-1)
-        tmpDataset.loc[(tmpDataset['BBBEE_Rank_Clean'] > tmpMinBBBEECount),'BBBEE_Rank_Clean'] = float('nan')
-        tmpTitle = 'Bootstrap_Industrials'
-    else:
-        tmpMinBBBEECount = MinBBBEECount
-        tmpTitle = 'Bootstrap_All'
-        
-    BBBEEBottomCount = tmpMinBBBEECount * 0.3 # take top 30% of 60 observations similar to Fama French, recall that ranking is flipped in rank.(ascending=False)
-    BBBEETopCount = tmpMinBBBEECount - BBBEEBottomCount # take bottom 30% of 60 observations similar to Fama French
-    BBBEEMatrix = tmpDataset.pivot_table('BBBEE_Rank_Clean', index='Year', columns='FirmID')
-    BBBEEMatrix = BBBEEMatrix.reset_index(drop=True)
-    BBBEEBottomDummy = ([BBBEEMatrix <= BBBEEBottomCount]) 
-    BBBEETopDummy = ([BBBEEMatrix >= BBBEETopCount]) 
-    BBBEEBottomDummy = BBBEEBottomDummy[0]
-    BBBEETopDummy = BBBEETopDummy[0]
-    BBBEETopDummy = BBBEETopDummy.reset_index(drop=True)
-    BootstrapReturnMatrix = tmpDataset.pivot_table('PriceLogReturn_YR1', index='Year', columns='FirmID')
-    BBBEETopReturn = np.array(BBBEETopDummy)*np.array(BootstrapReturnMatrix)
-    BBBEETopReturn[BBBEETopReturn == 0] = np.nan
-    BBBEETopReturn = np.nanmean(BBBEETopReturn, axis=1)
-    BBBEETopReturn = pd.DataFrame(BBBEETopReturn)
-    BBBEETopReturn.columns = ['BBBEE_Top']
-    BBBEETopReturn = BBBEETopReturn.fillna(0) #if no values for the year (2007 for industrials then 0)
-    BBBEEBottomReturn = np.array(BBBEEBottomDummy)*np.array(BootstrapReturnMatrix)
-    BBBEEBottomReturn[BBBEEBottomReturn == 0] = np.nan
-    BBBEEBottomReturn = np.nanmean(BBBEEBottomReturn, axis=1)
-    BBBEEBottomReturn = pd.DataFrame(BBBEEBottomReturn)
-    BBBEEBottomReturn.columns = ['BBBEE_Bottom']
-    BBBEEBottomReturn = BBBEEBottomReturn.fillna(0)
-    BBBEEAllDummy = BBBEEMatrix.reset_index(drop=True)
-    BBBEEAllDummy[BBBEEAllDummy > 0] = 1
-    BBBEEAllReturn = pd.DataFrame(np.array(BBBEEAllDummy)*np.array(BootstrapReturnMatrix))
+        tmpTitle = 'Bootstrap_' + tmpSectorName
+        del tmpCleanRank
     
-    Bootstrap = np.zeros(shape=(BBBEEAllReturn.shape[0],2))
-    for jj in range(Bootstrap.shape[0]):
-        try:
-            tmpDatasetBootStrap = BBBEEAllReturn.iloc[jj]    
-            tmpDatasetBootStrap = [tmpDatasetBootStrap.dropna()][0]
-            tmpLower, tmpUpper = Functions.bootstrap(tmpDatasetBootStrap, confidence=0.95, iterations=10000, sample_size=1, statistic=np.mean)        
-        except:
-            tmpLower = 0
-            tmpUpper = 0
-        Bootstrap[jj,0] = tmpLower
-        Bootstrap[jj,1] = tmpUpper
-        del tmpDatasetBootStrap, tmpLower, tmpUpper
-    Bootstrap = pd.DataFrame(Bootstrap)
-    Bootstrap.columns = ['5%_ConfidenceInterval','95%_ConfidenceInterval']
-    Bootstrap['BBBEE_Top'] = BBBEETopReturn['BBBEE_Top']
-    Bootstrap['BBBEE_Bottom'] = BBBEEBottomReturn['BBBEE_Bottom']
-    BootstrapCum = (1+Bootstrap).cumprod() -1 # compound returns
-    tmpYearBootstrap = pd.DataFrame(index=BootstrapReturnMatrix.index)
-    tmpYearBootstrap = tmpYearBootstrap.reset_index()
-    BootstrapCum['Year'] = tmpYearBootstrap['Year']
-    Bootstrap['Year'] = tmpYearBootstrap['Year'] #year
-    Functions.BootstrapLineChart(BootstrapCum,ExportDir,tmpTitle)
-    del jj
+    tmpYearsBootstrap = tmpDataset['Year'].drop_duplicates()
+    tmpYearsBootstrap = tmpYearsBootstrap.reset_index(drop=True)
+    tmpOutputBootstrap = pd.DataFrame(np.zeros(shape=(tmpYearsBootstrap.shape[0],5)))
+    tmpOutputBootstrap.columns = ['Year','B-BBEE Top','B-BBEE Bottom','95% confidence','5% confidence']
+    tmpOutputBootstrap['Year'] = tmpYearsBootstrap
+    
+    for jj in range(tmpOutputBootstrap.shape[0]): #loop through years
+        tmpYearLoop = tmpOutputBootstrap['Year'].loc[jj]
+        tmpDataset2 = tmpDataset.loc[(tmpDataset['Year'] == tmpYearLoop)] 
+        tmpDataset2 = tmpDataset2.dropna()        
+        tmpDatasetMaxRank = tmpDataset2['BBBEE_Rank_Clean'].max()
+        if tmpDatasetMaxRank >= 2: # only calculate if there are two observations for a year
+            tmpDatasetCutOff = round(np.percentile(tmpDataset2['BBBEE_Rank_Clean'], 30),0) #determine what 30% means in terms of rank
+            tmpOutputBootstrap['B-BBEE Top'].loc[jj] = tmpDataset2.loc[(tmpDataset2['BBBEE_Rank_Clean']>=(tmpDatasetMaxRank - tmpDatasetCutOff)),'PriceLogReturn_YR1'].mean()
+            tmpOutputBootstrap['B-BBEE Bottom'].loc[jj] = tmpDataset2.loc[(tmpDataset2['BBBEE_Rank_Clean']<=tmpDatasetCutOff),'PriceLogReturn_YR1'].mean()
+            try:
+                tmpLower, tmpUpper = Functions.bootstrap(tmpDataset2['PriceLogReturn_YR1'], confidence=0.95, iterations=10000, sample_size=1, statistic=np.mean)           
+                tmpOutputBootstrap['95% confidence'].loc[jj] = tmpUpper
+                tmpOutputBootstrap['5% confidence'].loc[jj] = tmpLower
+            except:
+                tmpOutputBootstrap['95% confidence'].loc[jj] = 0
+                tmpOutputBootstrap['5% confidence'].loc[jj] = 0
+            del tmpYearLoop, tmpDataset2
+            
+    tmpOutputBootstrapCum = (1+tmpOutputBootstrap).cumprod() -1 # compound returns
+    tmpOutputBootstrapCum['Year'] = tmpOutputBootstrap['Year']
+    Functions.BootstrapLineChart(tmpOutputBootstrap,ExportDir,tmpTitle + '_Annual')
+    Functions.BootstrapLineChart(tmpOutputBootstrapCum,ExportDir,tmpTitle + '_Cumulative')    
+    del tmpYearsBootstrap, tmpOutputBootstrap, tmpOutputBootstrapCum, tmpTitle, tmpDataset
 
 #compare with sector  bias with JSE
 tmpSectorDataset1 = Dataset1[['FirmID','Year','DS_SECTORID','BBBEE_Rank_Clean']] # Dataset1
@@ -617,3 +598,4 @@ for ii in range(InputYears.shape[0]): #see https://lectures.quantecon.org/py/ols
     
 Functions.Regression5YearOutput(RegressionOutputMF2,ExportDir,'OLS_Summary_OutlierAdjusted' ) # Output Regression results Merwe and Ferreira
 Functions.Regression5YearOutput(RegressionOutputFF2,ExportDir,'OLS_Summary_OutlierAdjusted' ) # Output Regression results Fama French
+"""
