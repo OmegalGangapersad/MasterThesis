@@ -56,6 +56,8 @@
                 - replaced SIZE with SIZE
             20190505:
                 - added JSE
+            20190515:
+                - Renamed Staging.py to Input.py
 """
 ##START SCRIPT
 import os
@@ -76,11 +78,13 @@ RawBBBEE = ReadRawData.RawDataBBBEE
 RawPRICE = ReadRawData.RawDataPRICE
 RawBVPS = ReadRawData.RawDataBVPS
 RawSIZE = ReadRawData.RawDataSIZE
+RawE2P = ReadRawData.RawDataE2P
 RawYLD = ReadRawData.RawDataYLD
 RawFIRMDS = ReadRawData.RawDataFIRMDS
 RawFIRMBBBEEDS = ReadRawData.RawDataFIRMBBBEEDS
 RawDataSECTOR = ReadRawData.RawDataSECTOR
 RawDataJSE = ReadRawData.RawDataJSE
+
 
 ##STEP1: CREATE STAGINGDATES
 Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Start STEP1: Create StagingDates')
@@ -98,6 +102,7 @@ StagingPrice[StagingPrice==0] = 0.01
 StagingPrice = np.array(StagingPrice)
 StagingBVPS = np.array(RawBVPS)[:,1:]
 StagingSIZE = np.array(RawSIZE)[:,1:]
+StagingE2P = np.array(RawE2P)[:,1:]
 
 #FIND AND REMOVE COLUMNS ERROR AND PENNY STOCKS
 Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Start STEP2: Create StagingDates - FIND AND REMOVE COLUMNS ERROR AND PENNY STOCKS')
@@ -107,7 +112,7 @@ tmpMaxTimeFail = math.ceil(0.1*StagingPrice.shape[0])
 ErrorRow = np.zeros(shape=StagingPrice.shape[1])
 PennyRow = np.zeros(shape=StagingPrice.shape[1])
 for ii in range(StagingPrice.shape[1]):
-    tmpStrValues = np.array([str(StagingPrice[0,ii]),str(StagingBVPS[0,ii]),str(StagingSIZE[0,ii])]) 
+    tmpStrValues = np.array([str(StagingPrice[0,ii]),str(StagingBVPS[0,ii]),str(StagingSIZE[0,ii]),str(StagingE2P[0,ii])]) 
     tmpFalseValues = np.array(np.array(np.char.find(tmpStrValues, tmpErrorStr) == -1))[np.array(np.char.find(tmpStrValues, tmpErrorStr) != -1)] #np.char.find returns a value unequal to -1 if any of the values in the tmpArray contains '$$ER', here I ask to return a array where the values are unequal to -1 (so return the array which contains all the errors)     
     if tmpFalseValues.shape[0] >0: 
         ErrorRow[ii] = True
@@ -127,6 +132,7 @@ StagingBVPS = pd.DataFrame(StagingBVPS[:,TotErrorRow == False])
 StagingBP = pd.DataFrame(np.divide(np.array(StagingBVPS),np.array(StagingPrice)))
 StagingBP = pd.DataFrame(np.round(StagingBP.astype(np.double),2))    #round at 2 decimals, do not need extreme precision which costs more memory
 StagingSIZE = pd.DataFrame(StagingSIZE[:,TotErrorRow == False])
+StagingE2P = pd.DataFrame(StagingE2P[:,TotErrorRow == False])
 StagingPriceReturn = StagingPrice.pct_change()
 StagingPriceReturn = pd.DataFrame(np.round(StagingPriceReturn.astype(np.double),4))
 StagingPriceReturnCum = (1+StagingPriceReturn).cumprod() -1
@@ -151,6 +157,7 @@ StackPrice = Functions.StackDFDS_simple(StagingPrice,'Price')
 StackBVPS = Functions.StackDFDS_simple(StagingBVPS,'BVPS')
 StackBP = Functions.StackDFDS_simple(StagingBP,'BP')
 StackSIZE = Functions.StackDFDS_simple(StagingSIZE,'SIZE')
+StackE2P = Functions.StackDFDS_simple(StagingE2P,'E2P')
 StackPriceReturn = Functions.StackDFDS_simple(StagingPriceReturn,'PriceReturn')
 StackPriceReturnCum = Functions.StackDFDS_simple(StagingPriceReturnCum,'PriceReturnCum')
 StackPriceLogReturn = Functions.StackDFDS_simple(StagingPriceLogReturn,'PriceLogReturn')
@@ -163,12 +170,13 @@ StagingDS =  pd.merge(StagingDS,StackPrice, on=['FirmID', 'DateID'], how='left')
 StagingDS =  pd.merge(StagingDS,StackBVPS, on=['FirmID', 'DateID'], how='left')
 StagingDS =  pd.merge(StagingDS,StackBP, on=['FirmID', 'DateID'], how='left')
 StagingDS =  pd.merge(StagingDS,StackSIZE, on=['FirmID', 'DateID'], how='left')
+StagingDS =  pd.merge(StagingDS,StackE2P, on=['FirmID', 'DateID'], how='left')
 StagingDS =  pd.merge(StagingDS,StackPriceReturn, on=['FirmID', 'DateID'], how='left')
 StagingDS =  pd.merge(StagingDS,StackPriceReturnCum, on=['FirmID', 'DateID'], how='left')
 StagingDS =  pd.merge(StagingDS,StackPriceLogReturn, on=['FirmID', 'DateID'], how='left')
 StagingDS =  pd.merge(StagingDS,StackPriceLogReturnCum, on=['FirmID', 'DateID'], how='left')
-del StackBVPS,StackBP,StackSIZE,StackPriceReturn,StackPriceReturnCum,StackPriceLogReturn,StackPriceLogReturnCum
-del StagingBVPS,StagingBP,StagingSIZE,StagingPriceReturn,StagingPriceReturnCum,StagingPriceLogReturn,StagingPriceLogReturnCum
+del StackBVPS,StackBP,StackSIZE,StackPriceReturn,StackPriceReturnCum,StackPriceLogReturn,StackPriceLogReturnCum, StackE2P
+del StagingBVPS,StagingBP,StagingSIZE,StagingPriceReturn,StagingPriceReturnCum,StagingPriceLogReturn,StagingPriceLogReturnCum, StagingE2P
 
 #ADD YIELDS TO STACKDS
 Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Start STEP4: Create StagingDS - ADD YIELDS TO StagingDS')
@@ -226,6 +234,7 @@ StagingBBBEE = pd.DataFrame({
                             })
 StagingBBBEE = StagingBBBEE[['Year','FirmID','BBBEE_Rank','BBBEE_Score','BBBEE_OWN','BBBEE_MAN','BBBEE_EMP','BBBEE_SKL','BBBEE_PRF','BBBEE_ENT','BBBEE_SOC']] #force order
 StagingJSE = RawDataJSE #not adjusted, just copied
+StagingJSE.columns = ['RIC','DS_SECTORNAME','DS_SECTORCODE']
 
 ##STEP6: OUTPUT
 Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Start STEP6: Output')
