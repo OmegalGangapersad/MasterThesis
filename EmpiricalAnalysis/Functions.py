@@ -2,7 +2,7 @@
 #!/usr/bin/python
 """
 @create  : 20190206 (yyyyMMdd)
-@author  : Omegal Gangapersad
+@author  : Omegal Gangapersad C
 @Purpose : Container script which buckets all the functions used frequently. It contains
             - LogScript, general log function to keep track of progress of a script
             - StrfTimeDelta, this creates a string of a time elapsed (TimeDelta) in HH:MM:SS format
@@ -37,6 +37,8 @@
                    - Created BootstrapLineChart
                20190514: 
                    - Added output to LaTeX in Regression5YearOutput function
+               20190526: 
+                   - Adjusted variable name in OLSStandardizeXCol
 """ 
 import numpy as np
 def LogScript(ScriptName, Time, LogComment):
@@ -179,8 +181,8 @@ def OLSStandardizeXCol(InputDataFrame):
         tmpColumnName = str(tmpXColumns[0][jj])
         if tmpColumnName.find('DSDUMMY_') == 0:
             tmpXColumns[0][jj] = tmpColumnName[8:] #remove DSDUMMY for sector
-        if tmpColumnName.find('BP') == 0:
-            tmpXColumns[0][jj] = 'BP'
+        if tmpColumnName.find('BM') == 0:
+            tmpXColumns[0][jj] = 'BM'
         if tmpColumnName.find('SIZE') == 0:
             tmpXColumns[0][jj] = 'SIZE'
         if tmpColumnName.find('MarketPremium') == 0:
