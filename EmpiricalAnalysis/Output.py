@@ -2,7 +2,7 @@
 #!/usr/bin/python
 """
 @create  :  20190215 (yyyyMMdd)
-@author  :  Omegal Gangapersad
+@author  :  Omegal Gangapersad C
 @Purpose :  Clean RawData table to produce a single clean table with data which can be used to perform analysis on. This is realised by walking through these steps
 				1. Identify in Datastream data where columns are Error - index
 				2. Identify these index in SEC
@@ -352,6 +352,7 @@ InpReturnHorizonYears = pd.DataFrame([1,2,3,4,5])
 InputYears = InpReturnHorizonYears
 OutputSet = Dataset1[['Year','FirmID','BP','SIZE','E2P','BBBEE_Rank_Clean']]
 OutputSet = OutputSet.dropna()
+RegressionOutputNested = {}
 RegressionOutputMF = {}
 RegressionOutputMF20042007 = {}
 RegressionOutputMF20072013 = {}
@@ -390,7 +391,8 @@ for ii in range(InputYears.shape[0]): #see https://lectures.quantecon.org/py/ols
              tmpOutput = tmpOutputAll.loc[(tmpOutputAll['Year']>=2013)]   
              
         #Define Y and X and standardize X column names
-        tmpY = tmpOutput[[str('PriceLogReturn_YR'+ str(InputYears[0][ii]))]]    
+        tmpY = tmpOutput[[str('PriceLogReturn_YR'+ str(InputYears[0][ii]))]]  
+        
         tmpX1 = tmpOutput.drop(['Year','FirmID',str('BPIndex_YR'+ str(InputYears[0][ii])),str('SIZEIndex_YR'+ str(InputYears[0][ii])),str('PriceLogReturn_YR'+ str(InputYears[0][ii])),str('MarketPremium_YR'+ str(InputYears[0][ii])),str('RiskFreeReturn_YR'+ str(InputYears[0][ii]))], axis=1)
         tmpX1 = Functions.OLSStandardizeXCol(tmpX1)   
         tmpX1 = sm.add_constant(tmpX1)
