@@ -14,8 +14,8 @@
             Under the declare sections adjust: 
 				- the importdirectory to the user's selected directory - always
 				- the BBBEE, PRICE, BVPS, SIZE, YLD or SEC - if user altered source filenames
-@update  : 	Date (yyyyMMdd)
-			20190215:
+@update  :  Date (yyyyMMdd)
+    		  20190215:
                 - Added logs
                 - Cleaned structure of this script
             20190424:
@@ -30,7 +30,9 @@
             20190505:
                 - Added JSE (constituents)
             20190508:
-                - Added Earnings to Price (E2P)                        
+                - Added Earnings to Price (E2P)     
+            20190526:
+                - Cleaned code, made it robust to create rawdata folder                                           
 """
 ##START SCRIPT
 import os
@@ -62,7 +64,7 @@ def RawDataExcelToPython(ScriptName,ImportDirectory,FilenameBBBEE,FilenamePRICE,
     RawDataE2P = pd.read_excel(ImportDirectory + FilenameE2P['Value'].iloc[0],SheetGeneral)
     return RawDataBBBEE, RawDataPRICE, RawDataBVPS, RawDataSIZE, RawDataYLD, RawDataFIRMDS, RawDataFIRMBBBEEDS, RawDataSECTOR, RawDataJSE, RawDataE2P
 
-def DownloadRawData(ScriptName,ImportDirectory,Settings,FilenameBBBEE,FilenamePRICE,FilenameBVPS,FilenameSIZE,FilenameYLD,FilenameFIRM, FilenameSECTOR,FilenameJSE,FilenameE2P) :
+def DownloadRawData(ScriptName,ImportDirectory,Settings,FilenameBBBEE,FilenamePRICE,FilenameBVPS,FilenameSIZE,FilenameYLD,FilenameFIRM, FilenameSECTOR,FilenameJSE,FilenameE2P) :    
     IDBBBEE = pd.DataFrame(Settings[Settings['Parameter'] == 'FilenameBBBEE']['Comment'])
     IDPRICE = pd.DataFrame(Settings[Settings['Parameter'] == 'FilenamePRICE']['Comment'])
     IDBVPS = pd.DataFrame(Settings[Settings['Parameter'] == 'FilenameBVPS']['Comment'])
@@ -90,34 +92,50 @@ def DownloadRawData(ScriptName,ImportDirectory,Settings,FilenameBBBEE,FilenamePR
     Functions.download_file_from_google_drive(IDJSE['Comment'].iloc[0], ImportDirectory + FilenameJSE['Value'].iloc[0])    
     Functions.LogScript(ScriptName,datetime.datetime.now(),'Download: RawDataE2P')
     Functions.download_file_from_google_drive(IDE2P['Comment'].iloc[0], ImportDirectory + FilenameE2P['Value'].iloc[0])    
-##START SCRIPT
-tmpScriptName = os.path.basename(__file__)
-tmpStartTimeScript = datetime.datetime.now()
-Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Start Script') 
-tmpMainDir = os.path.dirname(os.path.realpath(__file__)) #working directory
-tmpImportDirectory = tmpMainDir + '\\Input\\RawData\\' 
-tmpSettings = pd.read_excel(tmpMainDir + '\\Settings.xlsx','Sheet1')
-tmpFilenameBBBEE = pd.DataFrame(tmpSettings[tmpSettings['Parameter'] == 'FilenameBBBEE']['Value'])
-tmpFilenamePRICE = pd.DataFrame(tmpSettings[tmpSettings['Parameter'] == 'FilenamePRICE']['Value'])
-tmpFilenameBVPS = pd.DataFrame(tmpSettings[tmpSettings['Parameter'] == 'FilenameBVPS']['Value'])
-tmpFilenameSIZE = pd.DataFrame(tmpSettings[tmpSettings['Parameter'] == 'FilenameSIZE']['Value'])
-tmpFilenameYLD = pd.DataFrame(tmpSettings[tmpSettings['Parameter'] == 'FilenameYLD']['Value'])
-tmpFilenameFIRM = pd.DataFrame(tmpSettings[tmpSettings['Parameter'] == 'FilenameFIRM']['Value'])
-tmpFilenameSECTOR = pd.DataFrame(tmpSettings[tmpSettings['Parameter'] == 'FilenameSECTOR']['Value'])
-tmpFilenameJSE = pd.DataFrame(tmpSettings[tmpSettings['Parameter'] == 'FilenameJSE']['Value'])
-tmpFilenameE2P = pd.DataFrame(tmpSettings[tmpSettings['Parameter'] == 'FilenameE2P']['Value'])
 
-tmpSheetGeneral = 'Output'
-tmpSheetFIRMDS = 'Unique_RIC_ISIN_Mapping' #RIC retrieved data
-tmpSheetFIRMBBBEEDS = 'SourceName_RIC_Mapping' #BBBEE name RIC mapping
+def main():
+    ##START SCRIPT
+    tmpScriptName = os.path.basename(__file__)
+    tmpStartTimeScript = datetime.datetime.now()
+    Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Start Script') 
+    tmpMainDir = os.path.dirname(os.path.realpath(__file__)) #working directory
+    tmpImportDirectory = tmpMainDir + '\\Input\\RawData\\' 
+    tmpSettings = pd.read_excel(tmpMainDir + '\\Settings.xlsx','Sheet1')
+    tmpFilenameBBBEE = pd.DataFrame(tmpSettings[tmpSettings['Parameter'] == 'FilenameBBBEE']['Value'])
+    tmpFilenamePRICE = pd.DataFrame(tmpSettings[tmpSettings['Parameter'] == 'FilenamePRICE']['Value'])
+    tmpFilenameBVPS = pd.DataFrame(tmpSettings[tmpSettings['Parameter'] == 'FilenameBVPS']['Value'])
+    tmpFilenameSIZE = pd.DataFrame(tmpSettings[tmpSettings['Parameter'] == 'FilenameSIZE']['Value'])
+    tmpFilenameYLD = pd.DataFrame(tmpSettings[tmpSettings['Parameter'] == 'FilenameYLD']['Value'])
+    tmpFilenameFIRM = pd.DataFrame(tmpSettings[tmpSettings['Parameter'] == 'FilenameFIRM']['Value'])
+    tmpFilenameSECTOR = pd.DataFrame(tmpSettings[tmpSettings['Parameter'] == 'FilenameSECTOR']['Value'])
+    tmpFilenameJSE = pd.DataFrame(tmpSettings[tmpSettings['Parameter'] == 'FilenameJSE']['Value'])
+    tmpFilenameE2P = pd.DataFrame(tmpSettings[tmpSettings['Parameter'] == 'FilenameE2P']['Value'])
+    
+    tmpSheetGeneral = 'Output'
+    tmpSheetFIRMDS = 'Unique_RIC_ISIN_Mapping' #RIC retrieved data
+    tmpSheetFIRMBBBEEDS = 'SourceName_RIC_Mapping' #BBBEE name RIC mapping
+    
+    ##CHECK FOR EXISTENCE RAWDATA FOLDER   
+    try:    
+        try:
+            os.mkdir(tmpMainDir + '\\Input\\')
+            os.mkdir(tmpImportDirectory)
+        except:
+            os.mkdir(tmpImportDirectory)            
+        Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Created Input RawData folder') 
+    except:
+        Functions.LogScript(tmpScriptName,datetime.datetime.now(),'Input RawData folder exists') 
+            
+    ##READ RAWDATA
+    try:    
+        RawDataExcelToPython(tmpScriptName,tmpImportDirectory,tmpFilenameBBBEE,tmpFilenamePRICE,tmpFilenameBVPS,tmpFilenameSIZE,tmpFilenameYLD,tmpFilenameFIRM,tmpSheetGeneral,tmpSheetFIRMDS,tmpSheetFIRMBBBEEDS,tmpFilenameSECTOR, tmpFilenameJSE, tmpFilenameE2P)
+    except:
+        DownloadRawData(tmpScriptName,tmpImportDirectory,tmpSettings,tmpFilenameBBBEE,tmpFilenamePRICE,tmpFilenameBVPS,tmpFilenameSIZE,tmpFilenameYLD,tmpFilenameFIRM,tmpFilenameSECTOR,tmpFilenameJSE,tmpFilenameE2P)
+        RawDataExcelToPython(tmpScriptName,tmpImportDirectory,tmpFilenameBBBEE,tmpFilenamePRICE,tmpFilenameBVPS,tmpFilenameSIZE,tmpFilenameYLD,tmpFilenameFIRM,tmpSheetGeneral,tmpSheetFIRMDS,tmpSheetFIRMBBBEEDS,tmpFilenameSECTOR,tmpFilenameJSE, tmpFilenameE2P)
+    
+    ##END SCRIPT
+    Functions.LogScript(tmpScriptName,datetime.datetime.now(),'End Script, RunTime: '+ Functions.StrfTimeDelta(datetime.datetime.now()-tmpStartTimeScript))
+    del tmpScriptName, tmpStartTimeScript, tmpMainDir, tmpImportDirectory, tmpSettings, tmpFilenameBBBEE, tmpFilenamePRICE, tmpFilenameBVPS, tmpFilenameSIZE, tmpFilenameYLD, tmpFilenameFIRM, tmpSheetGeneral, tmpSheetFIRMDS, tmpSheetFIRMBBBEEDS, tmpFilenameSECTOR, tmpFilenameJSE, tmpFilenameE2P
 
-##READ RAWDATA
-try:    
-    RawDataExcelToPython(tmpScriptName,tmpImportDirectory,tmpFilenameBBBEE,tmpFilenamePRICE,tmpFilenameBVPS,tmpFilenameSIZE,tmpFilenameYLD,tmpFilenameFIRM,tmpSheetGeneral,tmpSheetFIRMDS,tmpSheetFIRMBBBEEDS,tmpFilenameSECTOR, tmpFilenameJSE, tmpFilenameE2P)
-except:
-    DownloadRawData(tmpScriptName,tmpImportDirectory,tmpSettings,tmpFilenameBBBEE,tmpFilenamePRICE,tmpFilenameBVPS,tmpFilenameSIZE,tmpFilenameYLD,tmpFilenameFIRM,tmpFilenameSECTOR,tmpFilenameJSE,tmpFilenameE2P)
-    RawDataExcelToPython(tmpScriptName,tmpImportDirectory,tmpFilenameBBBEE,tmpFilenamePRICE,tmpFilenameBVPS,tmpFilenameSIZE,tmpFilenameYLD,tmpFilenameFIRM,tmpSheetGeneral,tmpSheetFIRMDS,tmpSheetFIRMBBBEEDS,tmpFilenameSECTOR,tmpFilenameJSE, tmpFilenameE2P)
-
-##END SCRIPT
-Functions.LogScript(tmpScriptName,datetime.datetime.now(),'End Script, RunTime: '+ Functions.StrfTimeDelta(datetime.datetime.now()-tmpStartTimeScript))
-del tmpScriptName, tmpStartTimeScript, tmpMainDir, tmpImportDirectory, tmpSettings, tmpFilenameBBBEE, tmpFilenamePRICE, tmpFilenameBVPS, tmpFilenameSIZE, tmpFilenameYLD, tmpFilenameFIRM, tmpSheetGeneral, tmpSheetFIRMDS, tmpSheetFIRMBBBEEDS, tmpFilenameSECTOR, tmpFilenameJSE, tmpFilenameE2P
+if __name__ == '__main__':
+    main()
