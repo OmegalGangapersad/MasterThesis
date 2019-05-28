@@ -64,6 +64,8 @@
                 - Rewrote bootstrap to account for all sectors
             20190526:
                 - Renamed variables 
+            20190528:
+                - Renamed variables (ratio)
 """
 
 ##START SCRIPT
@@ -129,6 +131,7 @@ tmpYear.columns = ['DateID','Year']
 StagingDS = pd.merge(StagingDS,pd.DataFrame(tmpYear),on='DateID',how='left') #create column with ReturnYearEndDummy to merge with StagingBBBEE
 Dataset0 = StagingDS.loc[StagingDS['Year']!=0] #this will return more rows than StagingBBBEE because StagingBBBEE only capture sec year combination for which there is a BBBEE score Dataset0 captures the sec even when there is no BBBEE score
 Dataset0 = pd.merge(Dataset0,StagingBBBEE,on=['Year','FirmID'], how='left')
+Dataset0.rename(columns={'BM':'BMRatio', 'SIZE':'SIZERatio', 'EP':'EPRatio'}, inplace=True)
 
 ObsVariableYear = Dataset0.groupby('Year').count() #Check number of firms with BBBEE score/without BBBEE score per year
 ObsSectorYearCount = Dataset0.pivot_table(['BBBEE_Rank','Price'], index='Year', columns='DS_SECTORID', aggfunc='count') #Check number of firms per sector per year - compare with JSE All share Index - Price as proxy for all observations
@@ -143,12 +146,13 @@ ObsSectorYearCount.to_excel(ExportDir + 'ObsSectorYearCount.xlsx', sheet_name='I
 
 # Create Dataset1 which has returns, market premium and riskfree rate starting from BBBEEStartYear
 Dataset1 = Dataset0.loc[(Dataset0['Year']>=(BBBEEStartYear-1))]
+
 SharePriceReturnMatrix = Dataset1.pivot_table('PriceLogReturnCum', index='Year', columns='FirmID')
 tmpYear = pd.DataFrame(SharePriceReturnMatrix.index.get_level_values(0))
 tmpYear['YearIndex'] = tmpYear.index.get_level_values(0)
 
 # FF BM and SIZE top 30% Dummy
-FactorDecile = pd.DataFrame(['SIZE','BM'])
+FactorDecile = pd.DataFrame(['SIZERatio','BMRatio'])
 FactorDecile.columns = ['Factors']
 for ii in range(FactorDecile.shape[0]):    
     inpFactor = FactorDecile['Factors'][ii]
@@ -165,12 +169,13 @@ for ii in range(FactorDecile.shape[0]):
     del inpFactor, FactorDF
 
 del ii,jj    
-BMMatrix = Dataset1.pivot_table('BM_Decile', index='Year', columns='FirmID')
+
+BMMatrix = Dataset1.pivot_table('BMRatio_Decile', index='Year', columns='FirmID')
 BMTopDummy = ([BMMatrix <=2]) #FF use top and bottom 30% see http://mba.tuck.dartmouth.edu/pages/faculty/ken.french/Data_Library/det_port_form_sz.html
 BMTopDummy = BMTopDummy[0]
 BMBottomDummy = ([BMMatrix >=7])
 BMBottomDummy = BMBottomDummy[0]
-SIZEMatrix = Dataset1.pivot_table('SIZE_Decile', index='Year', columns='FirmID')
+SIZEMatrix = Dataset1.pivot_table('SIZERatio_Decile', index='Year', columns='FirmID')
 SIZETopDummy = ([SIZEMatrix <=2])
 SIZETopDummy = SIZETopDummy[0]
 SIZEBottomDummy = ([SIZEMatrix >=7])
@@ -248,6 +253,7 @@ for ii in range(tmpSECTORID.shape[0]): #create a dummy variable name for all DS_
     SectorDummy[str(tmpColumnName)] = np.zeros(shape=(SectorDummy.shape[0],1))
     SectorDummy.loc[(SectorDummy['DS_SECTORID'] == tmpSECTORID['DS_SECTORID'][ii]),str(tmpColumnName)] = 1
 
+"""
 #bootstrap method as inspired by Mehta and Ward (p94) for the entire dataset and just for Industrial sector    
 tmpLoop = tmpSECTORID
 tmpLoop = tmpLoop.append(pd.Series(['All', 0], index=tmpLoop.columns), ignore_index=True) #https://thispointer.com/python-pandas-how-to-add-rows-in-a-dataframe-using-dataframe-append-loc-iloc/
@@ -298,6 +304,7 @@ for ii in range(tmpLoop.shape[0]): #loop through sectors
     Functions.BootstrapLineChart(tmpOutputBootstrap,ExportDir,tmpTitle + '_Annual')
     Functions.BootstrapLineChart(tmpOutputBootstrapCum,ExportDir,tmpTitle + '_Cumulative')    
     del tmpYearsBootstrap, tmpOutputBootstrap, tmpOutputBootstrapCum, tmpTitle, tmpDataset
+"""
 
 #compare with sector  bias with JSE
 tmpSectorDataset1 = Dataset1[['FirmID','Year','DS_SECTORID','BBBEE_Rank_Clean']] # Dataset1
@@ -343,14 +350,14 @@ RiskFreeReturn = RiskFreeReturn.loc[(RiskFreeReturn['Year']>=BBBEEStartYear)] #f
 SharePriceReturn = SharePriceReturn.loc[(SharePriceReturn['Year']>=BBBEEStartYear)] 
 
 #Run Descriptives over different time horizons - describe
-tmpBM = Dataset1.loc[(np.isnan(np.array(Dataset1['BBBEE_Rank_Clean']))==False)]#remove all rows with no BBBEE value
-tmpSIZE = Dataset1.loc[(np.isnan(np.array(Dataset1['BBBEE_Rank_Clean']))==False)]#remove all rows with no BBBEE value
-tmpEP = Dataset1.loc[(np.isnan(np.array(Dataset1['BBBEE_Rank_Clean']))==False)]#remove all rows with no BBBEE value
+tmpBMRatio = Dataset1.loc[(np.isnan(np.array(Dataset1['BBBEE_Rank_Clean']))==False)]#remove all rows with no BBBEE value
+tmpSIZERatio = Dataset1.loc[(np.isnan(np.array(Dataset1['BBBEE_Rank_Clean']))==False)]#remove all rows with no BBBEE value
+tmpEPRatio = Dataset1.loc[(np.isnan(np.array(Dataset1['BBBEE_Rank_Clean']))==False)]#remove all rows with no BBBEE value
 tmpSharePriceReturn = SharePriceReturn.loc[(np.isnan(np.array(Dataset1['BBBEE_Rank_Clean']))==False)]
 Describe1 = pd.DataFrame(Dataset1['FirmID'].describe())
-Describe1 = Functions.DescribeExNaN(tmpBM,'BM',Describe1)
-Describe1 = Functions.DescribeExNaN(tmpSIZE,'SIZE',Describe1)
-Describe1 = Functions.DescribeExNaN(tmpEP,'EP',Describe1)
+Describe1 = Functions.DescribeExNaN(tmpBMRatio,'BMRatio',Describe1)
+Describe1 = Functions.DescribeExNaN(tmpSIZERatio,'SIZERatio',Describe1)
+Describe1 = Functions.DescribeExNaN(tmpEPRatio,'EPRatio',Describe1)
 Describe1 = pd.DataFrame(Functions.DescribeMultipleYearsFactor(BMIndex,'BMIndex_YR',InpReturnHorizonYears,'ReturnHorizonYears',Describe1)) #describes over all the InputYears for this factor
 Describe1 = pd.DataFrame(Functions.DescribeMultipleYearsFactor(SIZEIndex,'SIZEIndex_YR',InpReturnHorizonYears,'ReturnHorizonYears',Describe1))
 Describe1 = pd.DataFrame(Functions.DescribeMultipleYearsFactor(MarketPremium,'MarketPremium_YR',InpReturnHorizonYears,'ReturnHorizonYears',Describe1))
@@ -358,12 +365,12 @@ Describe1 = pd.DataFrame(Functions.DescribeMultipleYearsFactor(MarketReturn,'Mar
 Describe1 = pd.DataFrame(Functions.DescribeMultipleYearsFactor(RiskFreeReturn,'RiskFreeReturn_YR',InpReturnHorizonYears,'ReturnHorizonYears',Describe1))
 Describe1 = pd.DataFrame(Functions.DescribeMultipleYearsFactor(tmpSharePriceReturn,'SharePriceReturn_YR',InpReturnHorizonYears,'ReturnHorizonYears',Describe1))
 Describe1.to_excel(ExportDir + 'Descriptives.xlsx', sheet_name='Input')
-del tmpBM, tmpSIZE
+del tmpBMRatio, tmpSIZERatio, tmpEPRatio
 
 #Run Descriptives over different time horizons - describe, scatterplots, correlation matrix
 InpReturnHorizonYears = pd.DataFrame([1,2,3,4,5])
 InputYears = InpReturnHorizonYears
-OutputSet = Dataset1[['Year','FirmID','BM','SIZE','EP','BBBEE_Rank_Clean']]
+OutputSet = Dataset1[['Year','FirmID','BMRatio','SIZERatio','EPRatio','BBBEE_Rank_Clean']]
 OutputSet = OutputSet.dropna()
 #RegressionOutputNested = {}
 RegressionOutputMF = {}
@@ -376,7 +383,7 @@ RegressionOutputFF20072013 = {}
 RegressionOutputFF20132018 = {}
 
 for ii in range(InputYears.shape[0]): #see https://lectures.quantecon.org/py/ols.html
-    tmpOutputAll = pd.merge(OutputSet[['Year','FirmID','BM','SIZE','EP','BBBEE_Rank_Clean']],BMIndex[['Year',str('BMIndex_YR'+ str(InputYears[0][ii]))]],on='Year',how='left')
+    tmpOutputAll = pd.merge(OutputSet[['Year','FirmID','BMRatio','SIZERatio','EPRatio','BBBEE_Rank_Clean']],BMIndex[['Year',str('BMIndex_YR'+ str(InputYears[0][ii]))]],on='Year',how='left')
     tmpOutputAll['BBBEE_Rank'] = tmpOutputAll['BBBEE_Rank_Clean']
     tmpOutputAll = tmpOutputAll.drop('BBBEE_Rank_Clean', axis=1)
     tmpOutputAll = pd.merge(tmpOutputAll,SIZEIndex[['Year',str('SIZEIndex_YR'+ str(InputYears[0][ii]))]],on='Year',how='left')
@@ -392,7 +399,7 @@ for ii in range(InputYears.shape[0]): #see https://lectures.quantecon.org/py/ols
              tmpCorrelationMatrix = pd.DataFrame(tmpOutput.corr())
              tmpCorrelationMatrix.to_excel(ExportDir + 'CorrelationMatrix_YR' + str(InputYears[0][ii])+ '.xlsx', sheet_name='Input')       
              #create scatterplots 
-             tmpXColumns = ['BM','SIZE','EP','BBBEE_Rank',str('BMIndex_YR'+ str(InputYears[0][ii])),str('SIZEIndex_YR'+ str(InputYears[0][ii])),str('MarketPremium_YR'+ str(InputYears[0][ii])),str('RiskFreeReturn_YR'+ str(InputYears[0][ii]))]
+             tmpXColumns = ['BMRatio','SIZERatio','EPRatio','BBBEE_Rank',str('BMIndex_YR'+ str(InputYears[0][ii])),str('SIZEIndex_YR'+ str(InputYears[0][ii])),str('MarketPremium_YR'+ str(InputYears[0][ii])),str('RiskFreeReturn_YR'+ str(InputYears[0][ii]))]
              tmpYColumns = str('SharePriceReturn_YR'+ str(InputYears[0][ii]))    
              Functions.PriceLogScatterplots(tmpXColumns,tmpYColumns,tmpOutput,ExportDir)    
              del tmpXColumns,tmpYColumns,tmpCorrelationMatrix
@@ -409,7 +416,7 @@ for ii in range(InputYears.shape[0]): #see https://lectures.quantecon.org/py/ols
         tmpX1 = tmpOutput.drop(['Year','FirmID',str('BMIndex_YR'+ str(InputYears[0][ii])),str('SIZEIndex_YR'+ str(InputYears[0][ii])),str('SharePriceReturn_YR'+ str(InputYears[0][ii])),str('MarketPremium_YR'+ str(InputYears[0][ii])),str('RiskFreeReturn_YR'+ str(InputYears[0][ii]))], axis=1)
         tmpX1 = Functions.OLSStandardizeXCol(tmpX1)   
         tmpX1 = sm.add_constant(tmpX1)
-        tmpX2 = tmpOutput.drop(['Year','FirmID','BM','SIZE','EP',str('SharePriceReturn_YR'+ str(InputYears[0][ii]))], axis=1)
+        tmpX2 = tmpOutput.drop(['Year','FirmID','BMRatio','SIZERatio','EPRatio',str('SharePriceReturn_YR'+ str(InputYears[0][ii]))], axis=1)
         tmpX2 = Functions.OLSStandardizeXCol(tmpX2) 
         #Run Regression over different time horizons - simple bp, size, bpIndex, sizeIndex and     
         tmpOLSMF = sm.OLS(tmpY,tmpX1, missing='drop') # MF = Merwe and Ferreira model
@@ -461,7 +468,7 @@ InpReturnHorizonYears.columns = ['ReturnHorizonYears']
 
 #Adjust BM, SIZE
 Dataset2 = Dataset2.reset_index(drop=True)
-tmpColumns = ['BM','SIZE']
+tmpColumns = ['BMRatio','SIZERatio']
 for ii in range(len(tmpColumns)): 
     inpColumn = str(tmpColumns[ii])
     tmpDF1 = Functions.CapOutliers(Dataset2,inpColumn, ExportDir)
@@ -482,10 +489,10 @@ for ii in range(len(tmpColumns)):
 del tmpColumns, ii
 
 #Rerun Deciles
-Dataset2 = Dataset2.drop(['SIZE_Decile','BM_Decile'], axis=1)
+Dataset2 = Dataset2.drop(['SIZERatio_Decile','BMRatio_Decile'], axis=1)
 
 #Rerun factor returns
-FactorDecile2 = pd.DataFrame(['SIZE','BM'])
+FactorDecile2 = pd.DataFrame(['SIZERatio','BMRatio'])
 FactorDecile2.columns = ['Factors']
 for ii in range(FactorDecile2.shape[0]):    
     inpFactor2 = FactorDecile2['Factors'][ii]
@@ -502,12 +509,12 @@ for ii in range(FactorDecile2.shape[0]):
     del inpFactor2, FactorDF2
 
 del ii,jj 
-BMMatrix2 = Dataset2.pivot_table('BM_Decile', index='Year', columns='FirmID')
+BMMatrix2 = Dataset2.pivot_table('BMRatio_Decile', index='Year', columns='FirmID')
 BMTopDummy2 = ([BMMatrix2 <=2])
 BMTopDummy2 = BMTopDummy2[0]
 BMBottomDummy2 = ([BMMatrix2 >=7])
 BMBottomDummy2 = BMBottomDummy2[0]
-SIZEMatrix2 = Dataset2.pivot_table('SIZE_Decile', index='Year', columns='FirmID')
+SIZEMatrix2 = Dataset2.pivot_table('SIZERatio_Decile', index='Year', columns='FirmID')
 SIZETopDummy2 = ([SIZEMatrix2 <=2])
 SIZETopDummy2 = SIZETopDummy2[0]
 SIZEBottomDummy2 = ([SIZEMatrix2 >=7])
@@ -540,14 +547,14 @@ for ii in range(InpReturnHorizonYears.shape[0]):
     del tmpDF, tmpBMTop, tmpBMBottom, tmpSIZETop, tmpSIZEBottom
 
 #Run Descriptives over different time horizons - describe
-tmpBM = Dataset2.loc[(np.isnan(np.array(Dataset1['BBBEE_Rank_Clean']))==False)]#remove all rows with no BBBEE value
-tmpSIZE = Dataset2.loc[(np.isnan(np.array(Dataset1['BBBEE_Rank_Clean']))==False)]#remove all rows with no BBBEE value
-tmpEP = Dataset2.loc[(np.isnan(np.array(Dataset1['BBBEE_Rank_Clean']))==False)]#remove all rows with no BBBEE value
+tmpBMRatio = Dataset2.loc[(np.isnan(np.array(Dataset1['BBBEE_Rank_Clean']))==False)]#remove all rows with no BBBEE value
+tmpSIZERatio = Dataset2.loc[(np.isnan(np.array(Dataset1['BBBEE_Rank_Clean']))==False)]#remove all rows with no BBBEE value
+tmpEPRatio = Dataset2.loc[(np.isnan(np.array(Dataset1['BBBEE_Rank_Clean']))==False)]#remove all rows with no BBBEE value
 tmpSharePriceReturn = SharePriceReturn2.loc[(np.isnan(np.array(Dataset1['BBBEE_Rank_Clean']))==False)]
 Describe2 = pd.DataFrame(Dataset2['FirmID'].describe())
-Describe2 = Functions.DescribeExNaN(tmpBM,'BM',Describe2)
-Describe2 = Functions.DescribeExNaN(tmpSIZE,'SIZE',Describe2)
-Describe2 = Functions.DescribeExNaN(tmpEP,'EP',Describe2)
+Describe2 = Functions.DescribeExNaN(tmpBMRatio,'BMRatio',Describe2)
+Describe2 = Functions.DescribeExNaN(tmpSIZERatio,'SIZERatio',Describe2)
+Describe2 = Functions.DescribeExNaN(tmpEPRatio,'EPRatio',Describe2)
 Describe2 = pd.DataFrame(Functions.DescribeMultipleYearsFactor(BMIndex2,'BMIndex_YR',InpReturnHorizonYears,'ReturnHorizonYears',Describe2)) #describes over all the InputYears for this factor
 Describe2 = pd.DataFrame(Functions.DescribeMultipleYearsFactor(SIZEIndex2,'SIZEIndex_YR',InpReturnHorizonYears,'ReturnHorizonYears',Describe2))
 Describe2 = pd.DataFrame(Functions.DescribeMultipleYearsFactor(MarketPremium2,'MarketPremium_YR',InpReturnHorizonYears,'ReturnHorizonYears',Describe2))
@@ -555,18 +562,18 @@ Describe2 = pd.DataFrame(Functions.DescribeMultipleYearsFactor(MarketReturn2,'Ma
 Describe2 = pd.DataFrame(Functions.DescribeMultipleYearsFactor(RiskFreeReturn,'RiskFreeReturn_YR',InpReturnHorizonYears,'ReturnHorizonYears',Describe2))
 Describe2 = pd.DataFrame(Functions.DescribeMultipleYearsFactor(tmpSharePriceReturn,'SharePriceReturn_YR',InpReturnHorizonYears,'ReturnHorizonYears',Describe2))
 Describe2.to_excel(ExportDir + 'Descriptives_OutlierAdjusted.xlsx', sheet_name='Input')
-del tmpBM, tmpSIZE, tmpSharePriceReturn
+del tmpBMRatio, tmpSIZERatio, tmpEPRatio, tmpSharePriceReturn
 
 #Run Descriptives over different time horizons - describe, scatterplots, correlation matrix
 InpReturnHorizonYears = pd.DataFrame([1,2,3,4,5])
 InputYears = InpReturnHorizonYears
-OutputSet2 = Dataset2[['Year','FirmID','BM','SIZE','EP','BBBEE_Rank_Clean']]
+OutputSet2 = Dataset2[['Year','FirmID','BMRatio','SIZERatio','EPRatio','BBBEE_Rank_Clean']]
 OutputSet2 = OutputSet2.dropna()
 RegressionOutputMF2 = {}
 RegressionOutputFF2 = {}
 
 for ii in range(InputYears.shape[0]): #see https://lectures.quantecon.org/py/ols.html
-    tmpOutput = pd.merge(OutputSet2[['Year','FirmID','BM','SIZE','EP','BBBEE_Rank_Clean']],BMIndex2[['Year',str('BMIndex_YR'+ str(InputYears[0][ii]))]],on='Year',how='left')
+    tmpOutput = pd.merge(OutputSet2[['Year','FirmID','BMRatio','SIZERatio','EPRatio','BBBEE_Rank_Clean']],BMIndex2[['Year',str('BMIndex_YR'+ str(InputYears[0][ii]))]],on='Year',how='left')
     tmpOutput['BBBEE_Rank'] = tmpOutput['BBBEE_Rank_Clean']
     tmpOutput = tmpOutput.drop('BBBEE_Rank_Clean', axis=1)
     tmpOutput = pd.merge(tmpOutput,SIZEIndex2[['Year',str('SIZEIndex_YR'+ str(InputYears[0][ii]))]],on='Year',how='left')
@@ -581,7 +588,7 @@ for ii in range(InputYears.shape[0]): #see https://lectures.quantecon.org/py/ols
     tmpCorrelationMatrix.to_excel(ExportDir + 'CorrelationMatrix_OutlierAdjusted_YR' + str(InputYears[0][ii])+ '.xlsx', sheet_name='Input')
    
     #create scatterplots 
-    tmpXColumns = ['BM','SIZE','EP','BBBEE_Rank',str('BMIndex_YR'+ str(InputYears[0][ii])),str('SIZEIndex_YR'+ str(InputYears[0][ii])),str('MarketPremium_YR'+ str(InputYears[0][ii])),str('RiskFreeReturn_YR'+ str(InputYears[0][ii]))]
+    tmpXColumns = ['BMRatio','SIZERatio','EPRatio','BBBEE_Rank',str('BMIndex_YR'+ str(InputYears[0][ii])),str('SIZEIndex_YR'+ str(InputYears[0][ii])),str('MarketPremium_YR'+ str(InputYears[0][ii])),str('RiskFreeReturn_YR'+ str(InputYears[0][ii]))]
     tmpYColumn = str('SharePriceReturn_YR'+ str(InputYears[0][ii]))    
     Functions.PriceLogScatterplots(tmpXColumns,tmpYColumn,tmpOutput,ExportDir)    
     del tmpXColumns,tmpYColumn
@@ -591,10 +598,10 @@ for ii in range(InputYears.shape[0]): #see https://lectures.quantecon.org/py/ols
     tmpX1 = tmpOutput.drop(['Year','FirmID',str('BMIndex_YR'+ str(InputYears[0][ii])),str('SIZEIndex_YR'+ str(InputYears[0][ii])),str('SharePriceReturn_YR'+ str(InputYears[0][ii])),str('MarketPremium_YR'+ str(InputYears[0][ii])),str('RiskFreeReturn_YR'+ str(InputYears[0][ii]))], axis=1)    
     tmpX1 = Functions.OLSStandardizeXCol(tmpX1)   
     tmpX1 = sm.add_constant(tmpX1)
-    tmpX2 = tmpOutput.drop(['Year','FirmID','BM','SIZE','EP',str('SharePriceReturn_YR'+ str(InputYears[0][ii]))], axis=1)
+    tmpX2 = tmpOutput.drop(['Year','FirmID','BMRatio','SIZERatio','EPRatio',str('SharePriceReturn_YR'+ str(InputYears[0][ii]))], axis=1)
     tmpX2 = Functions.OLSStandardizeXCol(tmpX2)    
     
-    #Run Regression over different time horizons - simple bp, size, bpIndex, sizeIndex and     
+    #Run Regression over different time horizons - simple bpRatio, sizeRatio, bpIndex, sizeIndex and     
     tmpOLSMF = sm.OLS(tmpY,tmpX1, missing='drop') # MF = Merwe and Ferreira model
     tmpOLSMFResults = tmpOLSMF.fit()
     tmpKey = str('MF' + str(InputYears[0][ii]))   # https://stackoverflow.com/questions/5036700/how-can-you-dynamically-create-variables-via-a-while-loop 
