@@ -39,6 +39,8 @@
                    - Added output to LaTeX in Regression5YearOutput function
                20190526: 
                    - Adjusted variable name in OLSStandardizeXCol
+               20190528:
+                   - Regression5YearOutput adjusted output name
 """ 
 import numpy as np
 def LogScript(ScriptName, Time, LogComment):
@@ -181,10 +183,16 @@ def OLSStandardizeXCol(InputDataFrame):
         tmpColumnName = str(tmpXColumns[0][jj])
         if tmpColumnName.find('DSDUMMY_') == 0:
             tmpXColumns[0][jj] = tmpColumnName[8:] #remove DSDUMMY for sector
-        if tmpColumnName.find('BM') == 0:
-            tmpXColumns[0][jj] = 'BM'
-        if tmpColumnName.find('SIZE') == 0:
-            tmpXColumns[0][jj] = 'SIZE'
+        if tmpColumnName.find('BMRatio') == 0:
+            tmpXColumns[0][jj] = 'BMRatio'
+        if tmpColumnName.find('BMIndex') == 0:
+            tmpXColumns[0][jj] = 'BMIndex'        
+        if tmpColumnName.find('SIZERatio') == 0:
+            tmpXColumns[0][jj] = 'SIZERatio'
+        if tmpColumnName.find('SIZEIndex') == 0:
+            tmpXColumns[0][jj] = 'SIZEIndex'
+        if tmpColumnName.find('EPRatio') == 0:
+            tmpXColumns[0][jj] = 'EPRatio'
         if tmpColumnName.find('MarketPremium') == 0:
             tmpXColumns[0][jj] = 'MarketPremium'
         if tmpColumnName.find('RiskFreeReturn') == 0:
@@ -198,6 +206,10 @@ def Regression5YearOutput(InpDict, ExpDir,InpTitlePrefix):
     import pandas as pd  
     from statsmodels.iolib.summary2 import summary_col      
     tmpKeys = pd.DataFrame(list(InpDict.keys()))
+    if tmpKeys[0][0][:-1] == 'MF':
+        tmpModelName2 = 'Model 2'
+    elif tmpKeys[0][0][:-1] == 'FF':
+        tmpModelName2 = 'Model 1'
     tmpModelName = tmpKeys[0][0][:-1] #get name from first key - assumes all key are the same 
     results_table = summary_col(results=[InpDict[str(tmpModelName + '1')],
                                          InpDict[str(tmpModelName + '2')],
@@ -208,10 +220,10 @@ def Regression5YearOutput(InpDict, ExpDir,InpTitlePrefix):
                                 stars = True,
                                 model_names=['1','2','3','4','5'],
                                 info_dict={'N':lambda x: "{0:d}".format(int(x.nobs)),'R2':lambda x: "{:.2f}".format(x.rsquared)})
-    results_table.add_title(str('OLS Regressions - ' +  tmpModelName))    
-    with open(ExpDir + InpTitlePrefix + tmpModelName + '.txt', 'w') as fh: #Output text
+    results_table.add_title(str('OLS Regressions - ' +  tmpModelName2))    
+    with open(ExpDir + InpTitlePrefix + tmpModelName2 + '.txt', 'w') as fh: #Output text
         fh.write(results_table.as_text())
-    with open(ExpDir + InpTitlePrefix + tmpModelName + '.tex', 'w') as f: #Output latex
+    with open(ExpDir + InpTitlePrefix + tmpModelName2 + '.tex', 'w') as f: #Output latex
         f.write(results_table.as_latex())
 
 
