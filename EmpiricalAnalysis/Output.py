@@ -66,6 +66,7 @@
                 - Renamed variables 
             20190528:
                 - Renamed variables (ratio)
+                - Reactivated bootstrap and installed nested regression
 """
 
 ##START SCRIPT
@@ -253,7 +254,7 @@ for ii in range(tmpSECTORID.shape[0]): #create a dummy variable name for all DS_
     SectorDummy[str(tmpColumnName)] = np.zeros(shape=(SectorDummy.shape[0],1))
     SectorDummy.loc[(SectorDummy['DS_SECTORID'] == tmpSECTORID['DS_SECTORID'][ii]),str(tmpColumnName)] = 1
 
-"""
+
 #bootstrap method as inspired by Mehta and Ward (p94) for the entire dataset and just for Industrial sector    
 tmpLoop = tmpSECTORID
 tmpLoop = tmpLoop.append(pd.Series(['All', 0], index=tmpLoop.columns), ignore_index=True) #https://thispointer.com/python-pandas-how-to-add-rows-in-a-dataframe-using-dataframe-append-loc-iloc/
@@ -304,7 +305,6 @@ for ii in range(tmpLoop.shape[0]): #loop through sectors
     Functions.BootstrapLineChart(tmpOutputBootstrap,ExportDir,tmpTitle + '_Annual')
     Functions.BootstrapLineChart(tmpOutputBootstrapCum,ExportDir,tmpTitle + '_Cumulative')    
     del tmpYearsBootstrap, tmpOutputBootstrap, tmpOutputBootstrapCum, tmpTitle, tmpDataset
-"""
 
 #compare with sector  bias with JSE
 tmpSectorDataset1 = Dataset1[['FirmID','Year','DS_SECTORID','BBBEE_Rank_Clean']] # Dataset1
@@ -381,6 +381,7 @@ RegressionOutputFF = {}
 RegressionOutputFF20042007 = {}
 RegressionOutputFF20072013 = {}
 RegressionOutputFF20132018 = {}
+RegressionOutputNested = {}
 
 for ii in range(InputYears.shape[0]): #see https://lectures.quantecon.org/py/ols.html
     tmpOutputAll = pd.merge(OutputSet[['Year','FirmID','BMRatio','SIZERatio','EPRatio','BBBEE_Rank_Clean']],BMIndex[['Year',str('BMIndex_YR'+ str(InputYears[0][ii]))]],on='Year',how='left')
@@ -418,6 +419,10 @@ for ii in range(InputYears.shape[0]): #see https://lectures.quantecon.org/py/ols
         tmpX1 = sm.add_constant(tmpX1)
         tmpX2 = tmpOutput.drop(['Year','FirmID','BMRatio','SIZERatio','EPRatio',str('SharePriceReturn_YR'+ str(InputYears[0][ii]))], axis=1)
         tmpX2 = Functions.OLSStandardizeXCol(tmpX2) 
+        tmpX3 = tmpOutput.drop(['Year','FirmID',str('SharePriceReturn_YR'+ str(InputYears[0][ii]))], axis=1)
+        tmpX3 = sm.add_constant(tmpX3)
+        tmpX3 = Functions.OLSStandardizeXCol(tmpX3) 
+        
         #Run Regression over different time horizons - simple bp, size, bpIndex, sizeIndex and     
         tmpOLSMF = sm.OLS(tmpY,tmpX1, missing='drop') # MF = Merwe and Ferreira model
         tmpOLSMFResults = tmpOLSMF.fit()
@@ -432,6 +437,7 @@ for ii in range(InputYears.shape[0]): #see https://lectures.quantecon.org/py/ols
         elif xx == 3:     
             RegressionOutputMF20132018[tmpKey] = tmpValue                
         del tmpKey, tmpValue            
+       
         tmpOLSFF = sm.OLS(tmpY,tmpX2, missing='drop') # MF = Fama and French
         tmpOLSFFResults = tmpOLSFF.fit()  
         tmpKey1 = str('FF' + str(InputYears[0][ii]))   # https://stackoverflow.com/questions/5036700/how-can-you-dynamically-create-variables-via-a-while-loop 
@@ -444,7 +450,15 @@ for ii in range(InputYears.shape[0]): #see https://lectures.quantecon.org/py/ols
              RegressionOutputFF20072013[tmpKey1] = tmpValue1    
         elif xx == 3:     
             RegressionOutputFF20132018[tmpKey1] = tmpValue1                
-        del tmpKey1, tmpValue1                            
+        del tmpKey1, tmpValue1
+        
+        tmpOLSNested = sm.OLS(tmpY,tmpX3, missing='drop') # MF = Fama and French
+        tmpOLSNestedResults = tmpOLSNested.fit()  
+        tmpKey1 = str('Nested' + str(InputYears[0][ii]))   # https://stackoverflow.com/questions/5036700/how-can-you-dynamically-create-variables-via-a-while-loop 
+        tmpValue1 = tmpOLSNestedResults   
+        if xx == 0:
+             RegressionOutputNested[tmpKey1] = tmpValue1 
+        del tmpKey1, tmpValue1                       
         del tmpOutput,tmpX1,tmpX2,tmpY,tmpOLSMF,tmpOLSMFResults,tmpOLSFF,tmpOLSFFResults
     del tmpOutputAll
 
@@ -458,6 +472,8 @@ Functions.Regression5YearOutput(RegressionOutputFF,ExportDir,'OLS_Summary_' ) # 
 Functions.Regression5YearOutput(RegressionOutputFF20042007,ExportDir,'OLS_Summary_2004_2007_' ) # Output Regression results Merwe and Ferreira
 Functions.Regression5YearOutput(RegressionOutputFF20072013,ExportDir,'OLS_Summary_2007_2013_' ) # Output Regression results Merwe and Ferreira
 Functions.Regression5YearOutput(RegressionOutputFF20132018,ExportDir,'OLS_Summary_2013_2018_' ) # Output Regression results Merwe and Ferreira
+
+Functions.Regression5YearOutput(RegressionOutputNested,ExportDir,'OLS_Summary_' ) # Output Regression results Fama French
 
 #Adjust for outliers - Dataset2 - RiskFreeReturn is not adjusted 
 Dataset2 = Dataset1 #Already contains clean BBBEE
