@@ -41,6 +41,7 @@
                    - Adjusted variable name in OLSStandardizeXCol
                20190528:
                    - Regression5YearOutput adjusted output name
+                   - Regression5YearOutput added Nested
 """ 
 import numpy as np
 def LogScript(ScriptName, Time, LogComment):
@@ -210,6 +211,9 @@ def Regression5YearOutput(InpDict, ExpDir,InpTitlePrefix):
         tmpModelName2 = 'Model 2'
     elif tmpKeys[0][0][:-1] == 'FF':
         tmpModelName2 = 'Model 1'
+    else:
+        tmpModelName2 = 'Nested'
+        tmpModelName = 'Nested'
     tmpModelName = tmpKeys[0][0][:-1] #get name from first key - assumes all key are the same 
     results_table = summary_col(results=[InpDict[str(tmpModelName + '1')],
                                          InpDict[str(tmpModelName + '2')],
