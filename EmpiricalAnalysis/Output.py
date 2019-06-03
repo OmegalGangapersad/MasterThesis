@@ -67,6 +67,8 @@
             20190528:
                 - Renamed variables (ratio)
                 - Reactivated bootstrap and installed nested regression
+            20190603:
+                - Cleaned code
 """
 
 ##START SCRIPT
@@ -75,6 +77,7 @@ import Functions
 import datetime
 import numpy as np
 import pandas as pd
+from numpy import matlib as mb
 import matplotlib.pyplot as plt
 import seaborn as sns
 import statsmodels.api as sm
@@ -155,23 +158,26 @@ tmpYear['YearIndex'] = tmpYear.index.get_level_values(0)
 # FF BM and SIZE top 30% Dummy
 FactorDecile = pd.DataFrame(['SIZERatio','BMRatio'])
 FactorDecile.columns = ['Factors']
+
 for ii in range(FactorDecile.shape[0]):    
     inpFactor = FactorDecile['Factors'][ii]
     FactorDF = pd.DataFrame(columns=['FirmID','Year',str(inpFactor+'_Decile')])
     for jj in range(tmpYear.shape[0]):
-        inpYear = tmpYear['Year'][jj]
+        inpYear = int(tmpYear['Year'][jj])
         tmpFactorDF = Dataset1.loc[(Dataset1['Year']==inpYear),['FirmID','Year',inpFactor]]
         tmpFactorDF[str(inpFactor+'_Decile')] = pd.qcut(tmpFactorDF[inpFactor],10,labels=False)
         tmpFactorDF = tmpFactorDF.drop_duplicates()
         tmpFactorDF = tmpFactorDF[['FirmID','Year',str(inpFactor+'_Decile')]]
+        tmpFactorDF = tmpFactorDF.astype(float)
         FactorDF = pd.concat([FactorDF, tmpFactorDF])    
         del inpYear, tmpFactorDF
     Dataset1 = pd.merge(Dataset1,FactorDF,on=['FirmID','Year'],how='left')
     del inpFactor, FactorDF
 
-del ii,jj    
+del ii,jj 
 
-BMMatrix = Dataset1.pivot_table('BMRatio_Decile', index='Year', columns='FirmID')
+#Dataset1.loc[(Dataset1['FirmID']==14) & (Dataset1['Year']==2018),'BMRatio_Decile'] = 5
+BMMatrix = Dataset1.pivot_table('BMRatio_Decile', index='Year', columns='FirmID', dropna=False)
 BMTopDummy = ([BMMatrix <=2]) #FF use top and bottom 30% see http://mba.tuck.dartmouth.edu/pages/faculty/ken.french/Data_Library/det_port_form_sz.html
 BMTopDummy = BMTopDummy[0]
 BMBottomDummy = ([BMMatrix >=7])
@@ -254,7 +260,7 @@ for ii in range(tmpSECTORID.shape[0]): #create a dummy variable name for all DS_
     SectorDummy[str(tmpColumnName)] = np.zeros(shape=(SectorDummy.shape[0],1))
     SectorDummy.loc[(SectorDummy['DS_SECTORID'] == tmpSECTORID['DS_SECTORID'][ii]),str(tmpColumnName)] = 1
 
-
+"""
 #bootstrap method as inspired by Mehta and Ward (p94) for the entire dataset and just for Industrial sector    
 tmpLoop = tmpSECTORID
 tmpLoop = tmpLoop.append(pd.Series(['All', 0], index=tmpLoop.columns), ignore_index=True) #https://thispointer.com/python-pandas-how-to-add-rows-in-a-dataframe-using-dataframe-append-loc-iloc/
@@ -305,6 +311,7 @@ for ii in range(tmpLoop.shape[0]): #loop through sectors
     Functions.BootstrapLineChart(tmpOutputBootstrap,ExportDir,tmpTitle + '_Annual')
     Functions.BootstrapLineChart(tmpOutputBootstrapCum,ExportDir,tmpTitle + '_Cumulative')    
     del tmpYearsBootstrap, tmpOutputBootstrap, tmpOutputBootstrapCum, tmpTitle, tmpDataset
+"""
 
 #compare with sector  bias with JSE
 tmpSectorDataset1 = Dataset1[['FirmID','Year','DS_SECTORID','BBBEE_Rank_Clean']] # Dataset1
@@ -313,7 +320,7 @@ tmpSectorDatasetPivot = tmpSectorDataset1.pivot_table('FirmID', index='Year', co
 tmpSectorDatasetPivot.reset_index(drop=True)
 tmpSectorDatasetPivot = tmpSectorDatasetPivot.fillna(0)
 tmpYearSector = tmpSectorDataset1[['BBBEE_Rank_Clean','Year']].groupby('Year').count()
-tmpYearSector = pd.DataFrame(np.matlib.repmat(np.array(tmpYearSector), 1, tmpSectorDatasetPivot.shape[1]))
+tmpYearSector = pd.DataFrame(mb.repmat(np.array(tmpYearSector), 1, tmpSectorDatasetPivot.shape[1]))
 tmpSector1 = np.array(tmpSectorDatasetPivot) / np.array(tmpYearSector)
 
 StagingJSE = pd.merge(StagingJSE,tmpSECTORID,on='DS_SECTORNAME',how='left') #calc JSE 
@@ -372,7 +379,6 @@ InpReturnHorizonYears = pd.DataFrame([1,2,3,4,5])
 InputYears = InpReturnHorizonYears
 OutputSet = Dataset1[['Year','FirmID','BMRatio','SIZERatio','EPRatio','BBBEE_Rank_Clean']]
 OutputSet = OutputSet.dropna()
-#RegressionOutputNested = {}
 RegressionOutputMF = {}
 RegressionOutputMF20042007 = {}
 RegressionOutputMF20072013 = {}
@@ -475,6 +481,11 @@ Functions.Regression5YearOutput(RegressionOutputFF20132018,ExportDir,'OLS_Summar
 
 Functions.Regression5YearOutput(RegressionOutputNested,ExportDir,'OLS_Summary_' ) # Output Regression results Fama French
 
+#regression per sector
+
+
+
+
 #Adjust for outliers - Dataset2 - RiskFreeReturn is not adjusted 
 Dataset2 = Dataset1 #Already contains clean BBBEE
 tmpYear2 = tmpYear.loc[(tmpYear['Year']>=BBBEEStartYear)] #ensure to only take years for which BBBBEE data is available
@@ -519,18 +530,19 @@ for ii in range(FactorDecile2.shape[0]):
         tmpFactorDF2 = tmpFactorDF2.drop_duplicates()
         tmpFactorDF2[str(inpFactor2+'_Decile')] = pd.qcut(tmpFactorDF2[inpFactor2],10,labels=False)
         tmpFactorDF2 = tmpFactorDF2[['FirmID','Year',str(inpFactor2+'_Decile')]]
+        tmpFactorDF2 = tmpFactorDF2.astype(float)
         FactorDF2 = pd.concat([FactorDF2, tmpFactorDF2])    
         del inpYear, tmpFactorDF2
     Dataset2 = pd.merge(Dataset2,FactorDF2,on=['FirmID','Year'],how='left')
     del inpFactor2, FactorDF2
 
 del ii,jj 
-BMMatrix2 = Dataset2.pivot_table('BMRatio_Decile', index='Year', columns='FirmID')
+BMMatrix2 = Dataset2.pivot_table('BMRatio_Decile', index='Year', columns='FirmID', dropna=False)
 BMTopDummy2 = ([BMMatrix2 <=2])
 BMTopDummy2 = BMTopDummy2[0]
 BMBottomDummy2 = ([BMMatrix2 >=7])
 BMBottomDummy2 = BMBottomDummy2[0]
-SIZEMatrix2 = Dataset2.pivot_table('SIZERatio_Decile', index='Year', columns='FirmID')
+SIZEMatrix2 = Dataset2.pivot_table('SIZERatio_Decile', index='Year', columns='FirmID' , dropna=False)
 SIZETopDummy2 = ([SIZEMatrix2 <=2])
 SIZETopDummy2 = SIZETopDummy2[0]
 SIZEBottomDummy2 = ([SIZEMatrix2 >=7])
@@ -546,8 +558,8 @@ BMBottomDummy2 = BMBottomDummy[BMBottomDummy.index>=BBBEEStartYear]
 
 for ii in range(InpReturnHorizonYears.shape[0]):
     tmpReturnHorizonYears = InpReturnHorizonYears['ReturnHorizonYears'][ii]
-    tmpSharePriceReturnColumn = str('SharePriceReturn_YR' + str(tmpReturnHorizonYears))
-    tmpDF = SharePriceReturn2.pivot_table(tmpSharePriceReturnColumn, index='Year', columns='FirmID')    
+    tmpSharePriceReturnColumn = str('SharePriceReturn_YR' + str(tmpReturnHorizonYears))    
+    tmpDF = SharePriceReturn2.pivot_table(tmpSharePriceReturnColumn, index='Year', columns='FirmID', dropna=False)    
     MarketReturn2['MarketReturn_YR'+str(tmpReturnHorizonYears)] = np.nanmean(np.array(tmpDF), axis=1) #calculate market return over time horizon    
     MarketPremium2['MarketPremium_YR'+str(tmpReturnHorizonYears)] = MarketReturn2['MarketReturn_YR'+str(tmpReturnHorizonYears)] - RiskFreeReturn['RiskFreeReturn_YR'+str(tmpReturnHorizonYears)]
     tmpBMTop = pd.DataFrame(np.array(BMTopDummy2)*np.array(tmpDF))
