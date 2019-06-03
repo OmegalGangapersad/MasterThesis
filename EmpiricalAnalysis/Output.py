@@ -69,6 +69,7 @@
                 - Reactivated bootstrap and installed nested regression
             20190603:
                 - Cleaned code
+                - Started regressions per sector Dataset1
 """
 
 ##START SCRIPT
@@ -343,7 +344,7 @@ tmpColumns = list(tmpColumns['DS_SECTORNAME'])
 tmpJSEDataset1Diff.columns = tmpColumns
 tmpJSEDataset1Diff.to_excel(ExportDir + "RelativeDifference_JSE_Dataset.xlsx",sheet_name='Input')
 
-del tmpSECTORID,ii
+del ii
 SectorDummy = SectorDummy.drop(['DS_SECTORID'], axis=1)
 
 #Finalize Variables
@@ -481,9 +482,56 @@ Functions.Regression5YearOutput(RegressionOutputFF20132018,ExportDir,'OLS_Summar
 
 Functions.Regression5YearOutput(RegressionOutputNested,ExportDir,'OLS_Summary_' ) # Output Regression results Fama French
 
+
 #regression per sector
+RegressionSectorFF = dict.fromkeys(list(tmpSECTORID['DS_SECTORNAME']))
+RegressionSectorMF = dict.fromkeys(list(tmpSECTORID['DS_SECTORNAME']))
 
+for tmpSectorLoop in range(tmpSECTORID.shape[0]):
+    tmpSectorID = tmpSECTORID['DS_SECTORID'].iloc[tmpSectorLoop]
+    tmpSectorName = tmpSECTORID['DS_SECTORNAME'].iloc[tmpSectorLoop]
+    RegressionSectorMF[tmpSectorName] ={}
+    RegressionSectorFF[tmpSectorName] ={}
+    OutputSetSector = Dataset1.loc[(Dataset1['DS_SECTORID'] == tmpSectorID),['Year','FirmID','BMRatio','SIZERatio','EPRatio','BBBEE_Rank_Clean']]
+    for ii in range(InputYears.shape[0]): #see https://lectures.quantecon.org/py/ols.html
+        tmpOutputAll = pd.merge(OutputSetSector[['Year','FirmID','BMRatio','SIZERatio','EPRatio','BBBEE_Rank_Clean']],BMIndex[['Year',str('BMIndex_YR'+ str(InputYears[0][ii]))]],on='Year',how='left')
+        tmpOutputAll['BBBEE_Rank'] = tmpOutputAll['BBBEE_Rank_Clean']
+        tmpOutputAll = tmpOutputAll.drop('BBBEE_Rank_Clean', axis=1)
+        tmpOutputAll = pd.merge(tmpOutputAll,SIZEIndex[['Year',str('SIZEIndex_YR'+ str(InputYears[0][ii]))]],on='Year',how='left')
+        tmpOutputAll = pd.merge(tmpOutputAll,MarketPremium[['Year',str('MarketPremium_YR'+ str(InputYears[0][ii]))]],on='Year',how='left')
+        tmpOutputAll = pd.merge(tmpOutputAll,RiskFreeReturn[['Year',str('RiskFreeReturn_YR'+ str(InputYears[0][ii]))]],on='Year',how='left')
+        tmpOutputAll = pd.merge(tmpOutputAll,SharePriceReturn[['Year','FirmID',str('SharePriceReturn_YR'+ str(InputYears[0][ii]))]],on=['Year','FirmID'],how='left')
+        tmpOutputAll = pd.merge(tmpOutputAll,SectorDummy,on=['Year','FirmID'],how='left')
+        tmpOutputAll = tmpOutputAll.drop_duplicates()
+        tmpOutput = tmpOutputAll
+        tmpY = tmpOutput[[str('SharePriceReturn_YR'+ str(InputYears[0][ii]))]]          
+        tmpX1 = tmpOutput.drop(['Year','FirmID',str('BMIndex_YR'+ str(InputYears[0][ii])),str('SIZEIndex_YR'+ str(InputYears[0][ii])),str('SharePriceReturn_YR'+ str(InputYears[0][ii])),str('MarketPremium_YR'+ str(InputYears[0][ii])),str('RiskFreeReturn_YR'+ str(InputYears[0][ii]))], axis=1)
+        tmpX1 = Functions.OLSStandardizeXCol(tmpX1)   
+        tmpX1 = sm.add_constant(tmpX1)
+        tmpX2 = tmpOutput.drop(['Year','FirmID','BMRatio','SIZERatio','EPRatio',str('SharePriceReturn_YR'+ str(InputYears[0][ii]))], axis=1)
+        tmpX2 = Functions.OLSStandardizeXCol(tmpX2) 
+        
+        #Run Regression over different time horizons - simple bp, size, bpIndex, sizeIndex and     
+        tmpOLSMF = sm.OLS(tmpY,tmpX1, missing='drop') # MF = Merwe and Ferreira model
+        tmpOLSMFResults = tmpOLSMF.fit()
+        tmpKey = str('MF' + str(InputYears[0][ii]))   # https://stackoverflow.com/questions/5036700/how-can-you-dynamically-create-variables-via-a-while-loop 
+        tmpValue = tmpOLSMFResults          
+        RegressionSectorMF[tmpSectorName][tmpKey] = tmpValue
+        del tmpKey, tmpValue     
+            
+        tmpOLSFF = sm.OLS(tmpY,tmpX2, missing='drop') # MF = Fama and French
+        tmpOLSFFResults = tmpOLSFF.fit()  
+        tmpKey1 = str('FF' + str(InputYears[0][ii]))   # https://stackoverflow.com/questions/5036700/how-can-you-dynamically-create-variables-via-a-while-loop 
+        tmpValue1 = tmpOLSFFResults   
+        RegressionSectorFF[tmpSectorName][tmpKey1] = tmpValue1
+        del tmpKey1, tmpValue1                
+        
+        del tmpOutputAll,tmpOutput,tmpX1,tmpX2,tmpY,tmpOLSMF,tmpOLSMFResults,tmpOLSFF,tmpOLSFFResults
 
+    del ii, OutputSetSector,tmpSectorID,tmpSectorName
+    
+del tmpSectorLoop
+"""
 
 
 #Adjust for outliers - Dataset2 - RiskFreeReturn is not adjusted 
@@ -648,3 +696,4 @@ for ii in range(InputYears.shape[0]): #see https://lectures.quantecon.org/py/ols
     
 Functions.Regression5YearOutput(RegressionOutputMF2,ExportDir,'OLS_Summary_OutlierAdjusted' ) # Output Regression results Merwe and Ferreira
 Functions.Regression5YearOutput(RegressionOutputFF2,ExportDir,'OLS_Summary_OutlierAdjusted' ) # Output Regression results Fama French
+"""
