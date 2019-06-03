@@ -42,6 +42,8 @@
                20190528:
                    - Regression5YearOutput adjusted output name
                    - Regression5YearOutput added Nested
+               20190603:
+                   - New version of statmodels does not support export to latex anymore
 """ 
 import numpy as np
 def LogScript(ScriptName, Time, LogComment):
@@ -78,7 +80,7 @@ def DatesDF(InputDataFrame):
     from datetime import datetime
     import numpy as np
     import pandas as pd
-    tmpDateTime = [date.to_datetime() for date in InputDataFrame]
+    tmpDateTime = pd.to_datetime(InputDataFrame)
     tmpYear = [date.year for date in InputDataFrame]
     tmpMonth = [date.month for date in InputDataFrame]
     tmpDay = [date.day for date in InputDataFrame]
@@ -227,8 +229,8 @@ def Regression5YearOutput(InpDict, ExpDir,InpTitlePrefix):
     results_table.add_title(str('OLS Regressions - ' +  tmpModelName2))    
     with open(ExpDir + InpTitlePrefix + tmpModelName2 + '.txt', 'w') as fh: #Output text
         fh.write(results_table.as_text())
-    with open(ExpDir + InpTitlePrefix + tmpModelName2 + '.tex', 'w') as f: #Output latex
-        f.write(results_table.as_latex())
+    #with open(ExpDir + InpTitlePrefix + tmpModelName2 + '.tex', 'w') as f: #Output latex
+    #    f.write(results_table.as_latex())
 
 
 def SimpleLineChart(inpXColumn,inpYColumn,inpDataFrame,ExpDir,XLabel,YLabel):    
