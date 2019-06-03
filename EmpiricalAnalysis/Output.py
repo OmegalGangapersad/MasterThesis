@@ -70,6 +70,7 @@
             20190603:
                 - Cleaned code
                 - Started regressions per sector Dataset1
+                - Finished regressions per sector Dataset1
 """
 
 ##START SCRIPT
@@ -261,7 +262,7 @@ for ii in range(tmpSECTORID.shape[0]): #create a dummy variable name for all DS_
     SectorDummy[str(tmpColumnName)] = np.zeros(shape=(SectorDummy.shape[0],1))
     SectorDummy.loc[(SectorDummy['DS_SECTORID'] == tmpSECTORID['DS_SECTORID'][ii]),str(tmpColumnName)] = 1
 
-"""
+
 #bootstrap method as inspired by Mehta and Ward (p94) for the entire dataset and just for Industrial sector    
 tmpLoop = tmpSECTORID
 tmpLoop = tmpLoop.append(pd.Series(['All', 0], index=tmpLoop.columns), ignore_index=True) #https://thispointer.com/python-pandas-how-to-add-rows-in-a-dataframe-using-dataframe-append-loc-iloc/
@@ -312,7 +313,7 @@ for ii in range(tmpLoop.shape[0]): #loop through sectors
     Functions.BootstrapLineChart(tmpOutputBootstrap,ExportDir,tmpTitle + '_Annual')
     Functions.BootstrapLineChart(tmpOutputBootstrapCum,ExportDir,tmpTitle + '_Cumulative')    
     del tmpYearsBootstrap, tmpOutputBootstrap, tmpOutputBootstrapCum, tmpTitle, tmpDataset
-"""
+
 
 #compare with sector  bias with JSE
 tmpSectorDataset1 = Dataset1[['FirmID','Year','DS_SECTORID','BBBEE_Rank_Clean']] # Dataset1
@@ -486,7 +487,7 @@ Functions.Regression5YearOutput(RegressionOutputNested,ExportDir,'OLS_Summary_' 
 #regression per sector
 RegressionSectorFF = dict.fromkeys(list(tmpSECTORID['DS_SECTORNAME']))
 RegressionSectorMF = dict.fromkeys(list(tmpSECTORID['DS_SECTORNAME']))
-
+tmpSectorLoop = 0
 for tmpSectorLoop in range(tmpSECTORID.shape[0]):
     tmpSectorID = tmpSECTORID['DS_SECTORID'].iloc[tmpSectorLoop]
     tmpSectorName = tmpSECTORID['DS_SECTORNAME'].iloc[tmpSectorLoop]
@@ -527,13 +528,13 @@ for tmpSectorLoop in range(tmpSECTORID.shape[0]):
         del tmpKey1, tmpValue1                
         
         del tmpOutputAll,tmpOutput,tmpX1,tmpX2,tmpY,tmpOLSMF,tmpOLSMFResults,tmpOLSFF,tmpOLSFFResults
-
-    del ii, OutputSetSector,tmpSectorID,tmpSectorName
     
+    Functions.Regression5YearOutput(RegressionSectorMF[tmpSectorName],ExportDir,'OLS_Summary_' + tmpSectorName + '_')
+    Functions.Regression5YearOutput(RegressionSectorFF[tmpSectorName],ExportDir,'OLS_Summary_' + tmpSectorName + '_')            
+    del ii, tmpSectorID, tmpSectorName, OutputSetSector
 del tmpSectorLoop
+
 """
-
-
 #Adjust for outliers - Dataset2 - RiskFreeReturn is not adjusted 
 Dataset2 = Dataset1 #Already contains clean BBBEE
 tmpYear2 = tmpYear.loc[(tmpYear['Year']>=BBBEEStartYear)] #ensure to only take years for which BBBBEE data is available
