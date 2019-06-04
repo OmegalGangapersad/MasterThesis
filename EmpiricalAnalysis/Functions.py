@@ -44,6 +44,8 @@
                    - Regression5YearOutput added Nested
                20190603:
                    - New version of statmodels does not support export to latex anymore
+               20190604:
+                   - Latest statmodels requires !pip install git+https://github.com/statsmodels/statsmodels.git@master for export to latex to work
 """ 
 import numpy as np
 def LogScript(ScriptName, Time, LogComment):
@@ -229,8 +231,8 @@ def Regression5YearOutput(InpDict, ExpDir,InpTitlePrefix):
     results_table.add_title(str('OLS Regressions - ' +  tmpModelName2))    
     with open(ExpDir + InpTitlePrefix + tmpModelName2 + '.txt', 'w') as fh: #Output text
         fh.write(results_table.as_text())
-    #with open(ExpDir + InpTitlePrefix + tmpModelName2 + '.tex', 'w') as f: #Output latex
-    #    f.write(results_table.as_latex())
+    with open(ExpDir + InpTitlePrefix + tmpModelName2 + '.tex', 'w') as f: #Output latex
+        f.write(results_table.as_latex())
 
 
 def SimpleLineChart(inpXColumn,inpYColumn,inpDataFrame,ExpDir,XLabel,YLabel):    
