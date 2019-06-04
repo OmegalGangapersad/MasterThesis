@@ -8,7 +8,8 @@ W_{it} = \frac{N_{it}}{N_{t}}
 \end{equation}
 where, $W_{it}$ is the sector weight of sector $i$ at time $t$, $N_{it}$ is the number of firm in sector $i$ at time $t$ and $N_{t}$ is the total number of firms at time $t$. 
 
-For the JSE All Share the time variable was fixed, as only the latest date was available. To check for bias in the B-BBEE sample, this study subtracted the weight per sector of  JSE All Share Index from the analysis dataset per sector per time. Below the results.
+For the JSE All Share the time variable was fixed, as only the latest date was available. To check for bias in the B-BBEE sample, this study subtracted the weight per sector of  JSE All Share Index from the analysis dataset per sector per time. The result are displayed on the next.
+\newpage
 \begin{table}[H] %H forces the position of the table at the line where you place it (not on a separate page etc) -https://tex.stackexchange.com/questions/121155/how-to-adjust-a-table-to-fit-on-page https://tex.stackexchange.com/questions/332528/increasing-the-space-between-two-rows?rq=1
 \centering
 \caption{Relative bias sample versus JSE All Share Index 2019} 
@@ -182,7 +183,8 @@ There are 5 columns visible in this table, these tables represent the share pric
 Model 1 finds negative relationships between B-BBEE rank and share price return, significant on a two, three and four years time horizon. This means that for the specified time horizons, the better the B-BBEE rank, the worse the share price return. It has to be noted that the magnitude, especially compared to the coefficients of other independent variables is small. For example, the three year regression shows the most negative B-BBEE rank coefficient of -0.0069. This indicates that an 1 incremental improvement of B-BBEE rank results in a reduction on a two years share price return of merely 0.69\%. Recall from the descriptives section that the variability of share price return was quite high (non outlier adjusted standard deviation of 47\%), therefore the impact that a change in B-BBEE rank has on two years share price return is quite muted.  In comparison, the magnitude of the market premium is far larger, and significant over the five time horizons. This suggests that the impact of B-BBEE is relatively small, but negative. Merwe and Ferreira (\citeyear{N7}, p552) also observed a same small significant negative relationship between B-BBEE and share price return. Using the different time horizons, Model 1 adds to the finding of Merwe and Ferreira and shows that the negative coefficient of B-BBEE rank increases up until the 4 years time horizon, from -0.0006 to -0.065. The increase of magnitude follows suggestions by Mehta and Ward (\citeyear{N27}, p89) who indicated that the market has an initial response to a B-BBEE rank, which is more positive, and as the market processes information, the response to the B-BBEE rank becomes more pronounced. The negative increasing coefficient and significance of the relationship between B-BBEE rank and share price performance over various share price return time horizons indicate that the costs of B-BBEE policy compliance for firm outweigh the benefits, causing a negative long term relationship between B-BBEE policy and firm performance.
 
 To check for robustness, the same model was tested on the outlier adjusted analysis dataset. Below the results.
-\begin{table}[H] 
+\newpage
+\begin{table}[t] 
 \tiny %https://tex.stackexchange.com/questions/27097/changing-the-font-size-in-a-table
 \centering
 \caption{Regression Model 1 - outlier adjusted, 2004 - 2018} 
@@ -224,7 +226,7 @@ Standard errors in parentheses.
 \end{tabular}}
 \end{table} 
 Here the relationship between B-BBEE rank and share price return on a one-year time horizon is slightly positive albeit not significant. On the two, three and four years time horizon, the relationship between B-BBEE rank and share price returns remains, just as in the analysis dataset,  negative and significant, but at slightly less negative coefficient compared to the analysis dataset. In contrast the 5 years time horizon displays a more pronounced negative coefficient, compared to the non outlier adjusted model. Therefore, the outlier adjusted Model 1 suggest that outliers did indeed impact the analysis dataset. However, the finding from Model 1 for the analysis dataset, displaying significant negative relationships between B-BBEE rank and share price return on various time horizons remained intact.
-
+\newpage
 Using the Model 2, based on the Merwe and Ferreira model the analysis dataset yields the following results:
 \begin{table}[H] 
 \tiny %https://tex.stackexchange.com/questions/27097/changing-the-font-size-in-a-table
@@ -340,18 +342,20 @@ The relationship between B-BBEE policy and firm performance for Financials is fo
 
 Most interestingly, the sectors in which the incentives to comply, access to government contracts, was expected larger, display negative relationship between B-BBEE policy and firm performance. Most notable, the Industrial sector shows highly significant and most pronounced negative coefficients. This indicates that the benefits presented for these firm to comply to B-BBEE policy are underwhelming compared to the costs. It is further interesting to note that for Industrial to coefficient becomes more pronounced negative as time horizon increases, until the four year time horizon. This indicates that especially on the longer term the relationship between B-BBEE policy and firm performance is negative and favors the notion from the Theory that the incentive to comply to B-BBEE by providing access is, acts more as a cost to continue to do business. 
 \section{Bootstrap method}
-To add robustness to the findings from the regression analysis, this study investigated whether the relationship between B-BBEE rank and share price return displayed a deviating result using the Bootstrap method as stated by Mehta and Ward. This adds robustness to answer the research sub questions “What was the long term relationship between Broad-Based Black Economic Empowerment policy on firm performance of the Johannesburg Stock Exchange-listed companies over the period 2004 - 2018?” and  “Did the relationship between B-BBEE policy and firm performance differ across sectors?”. Below a visualization of the bootstrap method results.
+To add robustness to the findings from the regression analysis, this study investigated whether the relationship between B-BBEE rank and share price return displayed a deviating result using the Bootstrap method as stated by Mehta and Ward. This adds robustness to answer the research sub questions “What was the long term relationship between Broad-Based Black Economic Empowerment policy on firm performance of the Johannesburg Stock Exchange-listed companies over the period 2004 - 2018?” and  “Did the relationship between B-BBEE policy and firm performance differ across sectors?”. Next, a visualization of the bootstrap method results.
+\newpage
 \begin{figure}[H]
   \centering
-  \includegraphics [scale=1]{Images/Bootstrap_All.png} \\
+  \includegraphics [scale=0.75]{Images/Bootstrap_All.png} \\
   {\small {\it \caption{Bootstrap entire dataset \label{fig:moun} }}}
 \end{figure}
 This chart displays four variables the 5\% and 95\% confidence intervals and the share price return of the top and bottom B-BBEE ranking firms. The confidence intervals were generated by bootstrapping the average returns of the entire dataset for each year, and retrieving the 5\% lowest and 5\% highest average returns for this year. These returns, as well as the returns for the top and bottom B-BBEE ranking firms were compounded over time. The top and bottom B-BBEE ranking firms were the average return of top and bottom 30\% ranking firms for each years. This chart shows that the 5\% highest average returns, the 95\% confidence interval rose significantly post 2008, outperforming all other variables handsomely as the average returns compounded aggressively. Similarly, although at a significant smaller compounding rate, the bottom B-BBEE ranking firms rose after 2008. It is particularly striking that from this analysis the bottom ranking B-BBEE firms outperform the top ranking B-BBEE firms. This analysis further shows the the bottom ranking B-BBEE firms do outperform the 5\% low confidence interval. This indicates the relationship between B-BBEE and share price return is insignificant, but most likely negative. Therefore this analysis provides (weak) support to the finding of the regression analyses on the entire period 2004 to 2018.
 
-Returning towards a possible bias in the Industrial sector, this study performed the same bootstrap analysis for firms in this sector to answer the sub question: “Did firms operating in a sector with a higher incentive to comply to the B-BBEE policy have higher firm performance?” Below a visualization of the results. 
+Returning towards a possible bias in the Industrial sector, this study performed the same bootstrap analysis for firms in this sector to answer the sub question: “Did firms operating in a sector with a higher incentive to comply to the B-BBEE policy have higher firm performance?” Next a visualization of the results. 
+\newpage
 \begin{figure}[H]
   \centering
-  \includegraphics [scale=1]{Images/Bootstrap_Industrials.png} \\
+  \includegraphics [scale=0.75]{Images/Bootstrap_Industrials.png} \\
   {\small {\it \caption{Bootstrap Industrials \label{fig:moun} }}}
 \end{figure}
 The above bootstrap analysis on the Industrial sector did entail a smaller sample size, which might explain that the findings of this chart are an exaggeration of the findings in the bootstrap analysis on the entire dataset. This chart, contrary to the idea in the Descriptives section, it appears that the negative relationship between B-BBEE and share price return is close to significant, as the top B-BBEE ranking firms in the Industrial sector remain close to the bottom 5\% confidence interval. This confirms earlier findings from the regression analysis on a sector by sector basis. 
@@ -359,7 +363,7 @@ The above bootstrap analysis on the Industrial sector did entail a smaller sampl
 The simulation for Consumer Services also shows a non significant performance of the top ranking B-BBEE firms. This can be seen below.
 \begin{figure}[H]
   \centering
-  \includegraphics [scale=1]{"Images/Bootstrap_Consumer Services_Cumulative"} \\
+  \includegraphics [scale=0.75]{"Images/Bootstrap_Consumer Services_Cumulative"} \\
   {\small {\it \caption{Bootstrap Consumer Services \label{fig:moun} }}}
 \end{figure}
 This sector, however, does display that the top ranking B-BBEE firms outperformed the bottom ranking B-BBEE firms. Recall, from the Theory states that  consumer behavior could express their values regarding empowerment in their consumption pattern \cite[p378]{N34}. This chart shows weak evidence of this statement. This effect supports the Financial sector regression finding that firms with no direct or indirect government access could benefit from B-BBEE policy compliance.
