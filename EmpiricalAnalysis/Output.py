@@ -71,6 +71,8 @@
                 - Cleaned code
                 - Started regressions per sector Dataset1
                 - Finished regressions per sector Dataset1
+            20190604:
+                - Latest statmodels requires !pip install git+https://github.com/statsmodels/statsmodels.git@master for export to latex to work
 """
 
 ##START SCRIPT
@@ -534,7 +536,7 @@ for tmpSectorLoop in range(tmpSECTORID.shape[0]):
     del ii, tmpSectorID, tmpSectorName, OutputSetSector
 del tmpSectorLoop
 
-"""
+
 #Adjust for outliers - Dataset2 - RiskFreeReturn is not adjusted 
 Dataset2 = Dataset1 #Already contains clean BBBEE
 tmpYear2 = tmpYear.loc[(tmpYear['Year']>=BBBEEStartYear)] #ensure to only take years for which BBBBEE data is available
@@ -697,4 +699,3 @@ for ii in range(InputYears.shape[0]): #see https://lectures.quantecon.org/py/ols
     
 Functions.Regression5YearOutput(RegressionOutputMF2,ExportDir,'OLS_Summary_OutlierAdjusted' ) # Output Regression results Merwe and Ferreira
 Functions.Regression5YearOutput(RegressionOutputFF2,ExportDir,'OLS_Summary_OutlierAdjusted' ) # Output Regression results Fama French
-"""
