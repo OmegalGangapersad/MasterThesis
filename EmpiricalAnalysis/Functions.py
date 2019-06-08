@@ -46,8 +46,11 @@
                    - New version of statmodels does not support export to latex anymore
                20190604:
                    - Latest statmodels requires !pip install git+https://github.com/statsmodels/statsmodels.git@master for export to latex to work
+               20190608:
+                   - Added Persistency function
 """ 
 import numpy as np
+import pandas as pd
 def LogScript(ScriptName, Time, LogComment):
     import datetime
     tmpTimeStamp = Time.strftime('%d-%b-%Y %H:%M:%S') 
@@ -324,4 +327,48 @@ def bootstrap(dataset, confidence=0.95, iterations=10000,
     uval = np.percentile(ostats, (confidence + ((1 - confidence) / 2)) * 100)
 
     return (lval, uval)    
-    # source: https://github.com/mvanga/pybootstrap/blob/master/pybootstrap/__init__.py     
+    # source: https://github.com/mvanga/pybootstrap/blob/master/pybootstrap/__init__.py  
+
+def PersistencyDF(InpDF,InpTimeHorizon = 5):
+    tmpPersistencyYears = InpDF['Year'].drop_duplicates()
+    tmpBBBEEAll = InpDF.pivot_table('BBBEE_Rank_Clean', index='Year', columns='FirmID', dropna=False)
+    tmpBBBEEAll = tmpBBBEEAll.fillna(value=0)
+    tmpFirmID = np.array(tmpBBBEEAll.columns)
+    tmpFirmID2 = np.matlib.repmat(tmpFirmID,15,1)
+    tmpMaxYears = max(tmpPersistencyYears)
+    
+    tmpColumn = []
+    tmpColumn.append('Year')
+    for ii in range(InpTimeHorizon):
+        tmpColumn.append(str(ii+1))        
+    
+    tmpNobs = pd.DataFrame(tmpBBBEEAll.astype(bool).sum(axis=1))
+    tmpCutOffNumberPerYear = round(tmpNobs.max(axis=1)*0.7,0) #cut off per year
+    tmpBBBEEAll = np.array(tmpBBBEEAll)
+    tmpCutoffMatrix = np.matlib.repmat(np.array(tmpCutOffNumberPerYear),tmpBBBEEAll.shape[1],1).transpose()
+    tmpTopBBBEE = np.where(tmpBBBEEAll >= tmpCutoffMatrix, 1, 0)
+    tmpFirmID3 = np.where(tmpTopBBBEE==1,tmpFirmID2,0)
+    tmpCountPerRow = np.sum(tmpTopBBBEE, axis=1)
+    tmpFirmIDDF = pd.DataFrame(columns=tmpColumn)
+    
+    for tmpLoopIndex ,tmpLoopYear in enumerate(tmpPersistencyYears):         
+        tmpFirmIDLoopCore = tmpFirmID3[tmpLoopIndex,tmpFirmID3[tmpLoopIndex]!=0]    
+        tmpLoopList = []
+        tmpLoopList.append(tmpLoopYear)
+        tmpDenominator = tmpCountPerRow[tmpLoopIndex]
+        for tmpLoopTimeHorizon in range(1,InpTimeHorizon+1):
+            if tmpPersistencyYears.iloc[tmpLoopIndex] + tmpLoopTimeHorizon <= tmpMaxYears: 
+                tmpFirmIDLoopTimeHorizon = tmpFirmID3[tmpLoopIndex + tmpLoopTimeHorizon,tmpFirmID3[tmpLoopIndex + tmpLoopTimeHorizon]!=0]
+                tmpFirmIDAvailable = np.isin(tmpFirmIDLoopCore,tmpFirmIDLoopTimeHorizon)
+                tmpFirmIDCount = np.sum(tmpFirmIDAvailable)
+                tmpFirmIDPercentage = tmpFirmIDCount/tmpDenominator
+            else:
+                tmpFirmIDPercentage = float('nan')
+            tmpLoopList.append(tmpFirmIDPercentage)   
+            
+        tmpFirmIDDFLoop = pd.DataFrame(np.array(tmpLoopList)[np.newaxis],columns=tmpColumn)    
+        tmpFirmIDDF = tmpFirmIDDF.append(tmpFirmIDDFLoop)
+    
+    return tmpFirmIDDF
+
+
