@@ -73,6 +73,8 @@
                 - Finished regressions per sector Dataset1
             20190604:
                 - Latest statmodels requires !pip install git+https://github.com/statsmodels/statsmodels.git@master for export to latex to work
+            20190608:
+                - Added persistency checks
 """
 
 ##START SCRIPT
@@ -264,7 +266,6 @@ for ii in range(tmpSECTORID.shape[0]): #create a dummy variable name for all DS_
     SectorDummy[str(tmpColumnName)] = np.zeros(shape=(SectorDummy.shape[0],1))
     SectorDummy.loc[(SectorDummy['DS_SECTORID'] == tmpSECTORID['DS_SECTORID'][ii]),str(tmpColumnName)] = 1
 
-
 #bootstrap method as inspired by Mehta and Ward (p94) for the entire dataset and just for Industrial sector    
 tmpLoop = tmpSECTORID
 tmpLoop = tmpLoop.append(pd.Series(['All', 0], index=tmpLoop.columns), ignore_index=True) #https://thispointer.com/python-pandas-how-to-add-rows-in-a-dataframe-using-dataframe-append-loc-iloc/
@@ -315,7 +316,6 @@ for ii in range(tmpLoop.shape[0]): #loop through sectors
     Functions.BootstrapLineChart(tmpOutputBootstrap,ExportDir,tmpTitle + '_Annual')
     Functions.BootstrapLineChart(tmpOutputBootstrapCum,ExportDir,tmpTitle + '_Cumulative')    
     del tmpYearsBootstrap, tmpOutputBootstrap, tmpOutputBootstrapCum, tmpTitle, tmpDataset
-
 
 #compare with sector  bias with JSE
 tmpSectorDataset1 = Dataset1[['FirmID','Year','DS_SECTORID','BBBEE_Rank_Clean']] # Dataset1
@@ -472,7 +472,7 @@ for ii in range(InputYears.shape[0]): #see https://lectures.quantecon.org/py/ols
         del tmpOutput,tmpX1,tmpX2,tmpY,tmpOLSMF,tmpOLSMFResults,tmpOLSFF,tmpOLSFFResults
     del tmpOutputAll
 
-del ii
+del ii, xx
 Functions.Regression5YearOutput(RegressionOutputMF,ExportDir,'OLS_Summary_' ) # Output Regression results Merwe and Ferreira
 Functions.Regression5YearOutput(RegressionOutputMF20042007,ExportDir,'OLS_Summary_2004_2007_' ) # Output Regression results Merwe and Ferreira
 Functions.Regression5YearOutput(RegressionOutputMF20072013,ExportDir,'OLS_Summary_2007_2013_' ) # Output Regression results Merwe and Ferreira
@@ -484,7 +484,6 @@ Functions.Regression5YearOutput(RegressionOutputFF20072013,ExportDir,'OLS_Summar
 Functions.Regression5YearOutput(RegressionOutputFF20132018,ExportDir,'OLS_Summary_2013_2018_' ) # Output Regression results Merwe and Ferreira
 
 Functions.Regression5YearOutput(RegressionOutputNested,ExportDir,'OLS_Summary_' ) # Output Regression results Fama French
-
 
 #regression per sector
 RegressionSectorFF = dict.fromkeys(list(tmpSECTORID['DS_SECTORNAME']))
@@ -536,6 +535,19 @@ for tmpSectorLoop in range(tmpSECTORID.shape[0]):
     del ii, tmpSectorID, tmpSectorName, OutputSetSector
 del tmpSectorLoop
 
+#Check BBBEE persistency
+tmpDataset = Dataset1.loc[(Dataset1['Year']>=BBBEEStartYear)]
+tmpAll = Functions.PersistencyDF(tmpDataset,5)
+tmpAll.to_excel(ExportDir + 'BBBEEPersistency_All.xlsx', sheet_name='Input')
+del tmpDataset,tmpAll
+
+for LoopIndex, LoopSectorID in enumerate(tmpSECTORID['DS_SECTORID']):
+    tmpSectorName = tmpSECTORID['DS_SECTORNAME'].iloc[LoopIndex]
+    print(tmpSectorName)
+    tmpDataset = Dataset1.loc[(Dataset1['Year']>=BBBEEStartYear)&(Dataset1['DS_SECTORID']==LoopSectorID)]
+    tmpSector = Functions.PersistencyDF(tmpDataset,5)
+    tmpSector.to_excel(ExportDir + 'BBBEEPersistency_' + tmpSectorName + '.xlsx', sheet_name='Input')
+del tmpDataset,tmpSector,LoopIndex, LoopSectorID
 
 #Adjust for outliers - Dataset2 - RiskFreeReturn is not adjusted 
 Dataset2 = Dataset1 #Already contains clean BBBEE
@@ -699,3 +711,4 @@ for ii in range(InputYears.shape[0]): #see https://lectures.quantecon.org/py/ols
     
 Functions.Regression5YearOutput(RegressionOutputMF2,ExportDir,'OLS_Summary_OutlierAdjusted' ) # Output Regression results Merwe and Ferreira
 Functions.Regression5YearOutput(RegressionOutputFF2,ExportDir,'OLS_Summary_OutlierAdjusted' ) # Output Regression results Fama French
+"""
