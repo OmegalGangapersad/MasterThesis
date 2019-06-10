@@ -266,8 +266,8 @@ def BootstrapLineChart(inpDataFrame,ExpDir,inpTitle):
     tmpYColumns = inpDataFrame.columns
     tmpYColumns = tmpYColumns.drop(['Year'])
     Markers = [',',',',',',',']
-    LineStyles = ['-','-','-','--']
-    Colors = ['grey','grey','k','k']
+    LineStyles = ['-','--','-','-']
+    Colors = ['k','k','grey','grey']
     fig = plt.figure()
     plt.rc('font', family='serif')
     for ii in range(len(tmpYColumns)):
@@ -293,7 +293,7 @@ def PriceLogScatterplots(inpXColumns,inpYColumn,inpDataFrame,ExpDir):
         fig.savefig(ExpDir + 'ScatterPlot_'+ inpYColumn +  '_' + tmpXColumn + '.png') 
 
 def bootstrap(dataset, confidence=0.95, iterations=10000,
-              sample_size=1.0, statistic=np.mean):
+              sample_size=1.0, statistic=np.median):
     """
     Bootstrap the confidence intervals for a given sample of a population
     and a statistic.
