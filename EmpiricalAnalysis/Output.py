@@ -303,7 +303,7 @@ for ii in range(tmpLoop.shape[0]): #loop through sectors
             tmpOutputBootstrap['B-BBEE Top'].loc[jj] = tmpDataset2.loc[(tmpDataset2['BBBEE_Rank_Clean']>=(tmpDatasetMaxRank - tmpDatasetCutOff)),'SharePriceReturn_YR1'].mean()
             tmpOutputBootstrap['B-BBEE Bottom'].loc[jj] = tmpDataset2.loc[(tmpDataset2['BBBEE_Rank_Clean']<=tmpDatasetCutOff),'SharePriceReturn_YR1'].mean()
             try:
-                tmpLower, tmpUpper = Functions.bootstrap(tmpDataset2['SharePriceReturn_YR1'], confidence=0.95, iterations=10000, sample_size=1, statistic=np.mean)           
+                tmpLower, tmpUpper = Functions.bootstrap(tmpDataset2['SharePriceReturn_YR1'], confidence=0.95, iterations=10000, sample_size=1, statistic=np.median)           
                 tmpOutputBootstrap['95% confidence'].loc[jj] = tmpUpper
                 tmpOutputBootstrap['5% confidence'].loc[jj] = tmpLower
             except:
@@ -711,4 +711,3 @@ for ii in range(InputYears.shape[0]): #see https://lectures.quantecon.org/py/ols
     
 Functions.Regression5YearOutput(RegressionOutputMF2,ExportDir,'OLS_Summary_OutlierAdjusted' ) # Output Regression results Merwe and Ferreira
 Functions.Regression5YearOutput(RegressionOutputFF2,ExportDir,'OLS_Summary_OutlierAdjusted' ) # Output Regression results Fama French
-"""
